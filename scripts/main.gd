@@ -36,6 +36,7 @@ var camera_rig = StrategyCamera.new()
 var touch_start := Vector2.ZERO
 var touch_moved := false
 var touch_count := 0
+var gesture_multitouch := false
 func _ready() -> void:
  world = Node3D.new()
  add_child(world)
@@ -71,6 +72,12 @@ func _ready() -> void:
  _menu()
 func _ui_action(action: String) -> void:
  match action:
+  "tab_field": game_ui.show_tab("field")
+  "tab_construction": game_ui.show_tab("construction")
+  "camera_left": camera_rig.angle -= 0.22; _camera()
+  "camera_right": camera_rig.angle += 0.22; _camera()
+  "camera_in": camera_rig.zoom -= 4.0; _camera()
+  "camera_out": camera_rig.zoom += 4.0; _camera()
   "prepare": _job("prepare")
   "sow": _job("sow")
   "harvest": _job("harvest")
@@ -109,6 +116,7 @@ func _new() -> void:
  progress = 0
  structures = {"2,2":true}
  _cancel_build()
+ game_ui.show_tab("field")
  _draw()
  _close()
 func _cube(parent: Node3D,pos: Vector3,size: Vector3,color: Color) -> void:
@@ -294,20 +302,25 @@ func _unhandled_input(e: InputEvent) -> void:
  if e is InputEventScreenTouch:
   if e.pressed:
    touch_count += 1
-   touch_start = e.position
-   touch_moved = false
+   if touch_count == 1:
+    touch_start = e.position
+    touch_moved = false
+    gesture_multitouch = false
+   else:
+    gesture_multitouch = true
+    touch_moved = true
   else:
    touch_count = maxi(0,touch_count-1)
-   if not touch_moved and touch_count == 0:
+   if not touch_moved and not gesture_multitouch and touch_count == 0:
     _pick_cell(e.position)
   camera_rig.touch(e)
  elif e is InputEventScreenDrag:
-  if e.position.distance_to(touch_start) > 14:
+  if touch_count > 1 or e.position.distance_to(touch_start) > 14:
    touch_moved = true
   camera_rig.touch(e)
   if build:
    _update_preview(e.position)
- elif e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
+ elif e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and e.pressed and not Input.is_emulating_mouse_from_touch():
   _pick_cell(e.position)
  elif e is InputEventMouseMotion:
   camera_rig.mouse(e)
