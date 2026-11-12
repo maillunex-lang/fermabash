@@ -89,7 +89,8 @@ func _make_hud() -> void:
  actions_panel.add_child(flow)
  for entry in [
   ["Посев","sow"],["Уборка","harvest"],["Продать","sell"],
-  ["Склад 2×2","build"],["Сохранить","save"],["Меню","menu"]
+  ["Навес 1×1","build_shed"],["Склад 2×2","build"],["Мастерская 3×3","build_workshop"],
+  ["Агрокомплекс 4×4","build_complex"],["Отмена","cancel_build"],["Сохранить","save"],["Меню","menu"]
  ]:
   action_buttons[entry[1]] = _button(flow,entry[0],entry[1])
 
@@ -125,7 +126,7 @@ func _layout() -> void:
  var compact := viewport.x < 900
  info_panel.position = Vector2(12,12)
  info_panel.size = Vector2(minf(viewport.x-24,560 if not compact else viewport.x-24),0)
- actions_panel.position = Vector2(12,viewport.y-(188 if compact else 102))
+ actions_panel.position = Vector2(12,viewport.y-(250 if compact else 180))
  actions_panel.size = Vector2(minf(viewport.x-24,510 if compact else 840),0)
  var flow := actions_panel.get_child(0) as GridContainer
  flow.columns = 3 if compact else 6
@@ -148,3 +149,7 @@ func update_hud(day: int, cash: int, grain: int, stage: int, job: String, progre
  action_buttons["harvest"].disabled = job != "" or stage != 2
  action_buttons["sell"].disabled = grain <= 0
  action_buttons["build"].disabled = cash < 900
+ action_buttons["build_shed"].disabled = cash < 250
+ action_buttons["build_workshop"].disabled = cash < 1600
+ action_buttons["build_complex"].disabled = cash < 3000
+ action_buttons["cancel_build"].disabled = not building
