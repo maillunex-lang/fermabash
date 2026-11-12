@@ -6,6 +6,7 @@ const SaveStore = preload("res://scripts/systems/save_store.gd")
 const GameClock = preload("res://scripts/systems/game_clock.gd")
 const FarmEnvironment = preload("res://scripts/visuals/farm_environment.gd")
 const StrategyCamera = preload("res://scripts/camera/strategy_camera.gd")
+const GameUI = preload("res://scripts/ui/game_ui.gd")
 var elapsed_seconds := 0.0
 var cash := 2000
 var grain := 0
@@ -20,7 +21,7 @@ var world: Node3D
 var cam: Camera3D
 var hud: Label
 var status: Label
-var menu: CenterContainer
+var game_ui: CanvasLayer
 var tractor: Node3D
 var harvester: Node3D
 var camera_rig = StrategyCamera.new()
@@ -48,50 +49,28 @@ func _ready() -> void:
  add_child(cam)
  cam.current = true
  _camera()
- var ui := CanvasLayer.new()
- ui.name = "GameUI"
- add_child(ui)
- var root := Control.new()
- root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
- ui.add_child(root)
- var panel := VBoxContainer.new()
- panel.position = Vector2(15,15)
- root.add_child(panel)
- hud = Label.new()
- panel.add_child(hud)
- status = Label.new()
- panel.add_child(status)
- var actions := HBoxContainer.new()
- panel.add_child(actions)
- _button(actions,"Посев",func(): _job("sow"))
- _button(actions,"Уборка",func(): _job("harvest"))
- _button(actions,"Продать",_sell)
- _button(actions,"Склад 2×2",_start_build)
- _button(actions,"Сохранить",_save)
- _button(actions,"Меню",_menu)
+ game_ui = GameUI.new()
+ add_child(game_ui)
+ hud = game_ui.stats
+ status = game_ui.message
+ game_ui.action_requested.connect(_ui_action)
  _draw()
  _menu()
-func _button(parent: Node,label: String,callback: Callable) -> void:
- var b := Button.new()
- b.text = label
- b.custom_minimum_size = Vector2(95,45)
- parent.add_child(b)
- b.pressed.connect(callback)
+func _ui_action(action: String) -> void:
+ match action:
+  "sow": _job("sow")
+  "harvest": _job("harvest")
+  "sell": _sell()
+  "build": _start_build()
+  "save": _save()
+  "menu": _menu()
+  "new": _new()
+  "continue": _continue()
+  "settings": status.text = "Звук выключен. Настройки появятся позже."
+  "quit": get_tree().quit()
 func _menu() -> void:
  running = false
- menu = CenterContainer.new()
- menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
- get_node("GameUI").add_child(menu)
- var box := VBoxContainer.new()
- menu.add_child(box)
- var title := Label.new()
- title.text = "AGRO EMPIRE ONLINE\nБашкортостан"
- title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
- box.add_child(title)
- _button(box,"Новая игра",func(): _new())
- _button(box,"Продолжить",_continue)
- _button(box,"Настройки",func(): status.text = "Звук: выключен")
- _button(box,"Выход",func(): get_tree().quit())
+ game_ui.show_menu()
 func _continue() -> void:
  if FileAccess.file_exists(SAVE):
   _load()
@@ -99,7 +78,7 @@ func _continue() -> void:
  else:
   _new()
 func _close() -> void:
- menu.queue_free()
+ game_ui.hide_menu()
  running = true
 func _new() -> void:
  cash = 2000
@@ -205,7 +184,7 @@ func _process(delta: float) -> void:
    progress = 0.0
    status.text = "Пшеница созрела"
    _draw()
- hud.text = "День %d | %d ₽ | Зерно %d т | Погода: ясно | %s" % [day,cash,grain,job]
+ game_ui.update_hud(day,cash,grain,stage,job,progress,build)
 func _camera() -> void:
  camera_rig.apply(cam)
 func _pick_cell(position: Vector2) -> void:
