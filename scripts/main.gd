@@ -106,7 +106,9 @@ func _ui_action(action: String) -> void:
   "region_close": game_ui.hide_regions()
   "region_back": game_ui._populate_regions(farm_profile)
   "region_district_list": game_ui._populate_regions()
-  "tab_field": game_ui.show_tab("field")
+  "tab_field":
+   _cancel_build()
+   game_ui.show_tab("field")
   "tab_territory": game_ui.show_tab("territory")
   "tab_construction": game_ui.show_tab("construction")
   "prepare": _request_field_action("prepare")
@@ -436,6 +438,7 @@ func _plot_job(kind: String) -> void:
  status.text = "Задание назначено полю (%d клеток). В очереди: %d" % [area,field_tasks.size()]
  if job == "":
   _start_next_field_task()
+ _save()
 
 func _start_next_field_task() -> void:
  if job != "" or field_tasks.is_empty():
