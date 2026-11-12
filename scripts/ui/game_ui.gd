@@ -276,7 +276,7 @@ func show_tab(tab: String) -> void:
  for action in action_buttons:
   var construction: bool = str(action).begins_with("build")
   var territory: bool = action in ["buy_land","place_field","road_dirt","road_gravel","road_asphalt"]
-  var visible_action: bool = territory if tab == "territory" else (construction if tab == "construction" else not construction)
+  var visible_action: bool = territory if tab == "territory" else (construction if tab == "construction" else not construction and not territory)
   if action == "cancel_build":
    visible_action = tab != "field"
   action_buttons[action].visible = visible_action
