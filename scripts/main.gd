@@ -405,15 +405,21 @@ func _plot_job(kind: String) -> void:
   selected_plot = ""
   return
  var cells: Array[String] = _group_cells(selected_plot)
+ if active_plot != "" and _group_of(active_plot) == _group_of(selected_plot):
+  status.text = "Это поле уже обрабатывается"
+  return
  var state: Dictionary = _plot_state(selected_plot)
  var area: int = cells.size()
  var reserved: int = 0
  for task in field_tasks:
+  if _group_of(str(task["key"])) == _group_of(selected_plot):
+   status.text = "На этом поле уже назначено задание"
+   return
   if str(task["action"]) == "harvest":
    reserved += int(task["area"])*PlotProduction.YIELD_TONS
  var available: int = ProductionRules.capacity(structures)-grain-reserved
  var cost: int = (PlotProduction.PREPARE_COST if kind == "prepare" else PlotProduction.SOW_COST if kind == "sow" else 0)*area
- if cash < cost or not PlotProduction.allowed(state,kind,cash,available if kind != "harvest" else available-area*PlotProduction.YIELD_TONS+PlotProduction.YIELD_TONS):
+ if cash < cost or (kind == "harvest" and available < area*PlotProduction.YIELD_TONS) or not PlotProduction.allowed(state,kind,cash,maxi(0,available)) :
   status.text = "Операция на выбранном поле недоступна"
   return
  var parts: PackedStringArray = selected_plot.split(",")
@@ -530,7 +536,10 @@ func _process(delta: float) -> void:
    if active_plot != "":
     var group_cells: Array[String] = _group_cells(active_plot)
     for cell_key in group_cells:
-     field_plots[cell_key] = PlotProduction.finish(_plot_state(cell_key),job)
+     var old_group: int = _group_of(cell_key)
+     var finished: Dictionary = PlotProduction.finish(_plot_state(cell_key),job)
+     finished["group"] = old_group
+     field_plots[cell_key] = finished
     if job == "harvest":
      grain += PlotProduction.YIELD_TONS*group_cells.size()
     status.text = "Работа на выбранном поле завершена"
