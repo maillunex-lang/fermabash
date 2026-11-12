@@ -268,6 +268,8 @@ func _unhandled_input(e: InputEvent) -> void:
   if e.position.distance_to(touch_start) > 14:
    touch_moved = true
   camera_rig.touch(e)
+  if build:
+   _update_preview(e.position)
  elif e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
   _pick_cell(e.position)
  elif e is InputEventMouseMotion:
