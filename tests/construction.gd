@@ -10,7 +10,7 @@ func _test() -> void:
  assert(not Rules.can_place(Vector2i(14,14),{},"complex"))
  assert(not Rules.can_place(Vector2i(7,4),{},"workshop"))
  assert(not Rules.can_place(Vector2i(10,6),{},"complex"))
- assert(not Rules.can_place(Vector2i(10,10),{"11,11":"workshop"},"shed"))
+ assert(not Rules.can_place(Vector2i(11,11),{"11,11":"workshop"},"shed"))
  assert(not Rules.can_place(Vector2i(11,11),{"10,10":"complex"},"shed"))
  assert(not Rules.can_place(Vector2i(10,10),{},"invalid"))
  var scene = load("res://scenes/Main.tscn").instantiate()
