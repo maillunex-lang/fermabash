@@ -16,6 +16,9 @@ var job := ""
 var progress := 0.0
 var structures := {"2,2":true}
 var build := false
+var build_kind := "warehouse"
+var preview_cell := Vector2i(-1,-1)
+var preview: MeshInstance3D
 var running := false
 var world: Node3D
 var cam: Camera3D
@@ -31,6 +34,9 @@ var touch_count := 0
 func _ready() -> void:
  world = Node3D.new()
  add_child(world)
+ preview = MeshInstance3D.new()
+ add_child(preview)
+ preview.visible = false
  var sun := DirectionalLight3D.new()
  sun.rotation_degrees = Vector3(-55,-30,0)
  sun.light_energy = 1.25
@@ -62,6 +68,10 @@ func _ui_action(action: String) -> void:
   "harvest": _job("harvest")
   "sell": _sell()
   "build": _start_build()
+  "build_shed": _start_build("shed")
+  "build_workshop": _start_build("workshop")
+  "build_complex": _start_build("complex")
+  "cancel_build": _cancel_build()
   "save": _save()
   "menu": _menu()
   "new": _new()
@@ -89,6 +99,7 @@ func _new() -> void:
  job = ""
  progress = 0
  structures = {"2,2":true}
+ _cancel_build()
  _draw()
  _close()
 func _cube(parent: Node3D,pos: Vector3,size: Vector3,color: Color) -> void:
@@ -117,8 +128,12 @@ func _draw() -> void:
   var p: Array = key.split(",")
   var x := int(p[0])
   var z := int(p[1])
-  _cube(world,Vector3((x+1)*CELL,1.2,(z+1)*CELL),Vector3(5.4,2.4,5.4),Color("d4d5c9"))
-  _cube(world,Vector3((x+1)*CELL,2.7,(z+1)*CELL),Vector3(5.8,0.6,5.8),Color("406c7e"))
+  var kind: String = BuildRules.kind_of(structures[key])
+  var size: int = BuildRules.size_of(structures[key])
+  var width := float(size)*CELL
+  var center := Vector3((x+float(size)*0.5)*CELL,1.2,(z+float(size)*0.5)*CELL)
+  _cube(world,center,Vector3(width-0.6,2.4,width-0.6),Color("d4d5c9"))
+  _cube(world,center+Vector3(0,1.5,0),Vector3(width-0.2,0.6,width-0.2),Color.html(str(BuildRules.definition(kind)["color"])))
  tractor = Node3D.new()
  world.add_child(tractor)
  _cube(tractor,Vector3(0,0.8,0),Vector3(2.5,1.2,1.6),Color("d65b2d"))
@@ -147,9 +162,40 @@ func _job(kind: String) -> void:
  job = kind
  progress = 0.0
  status.text = "Техника отправлена"
-func _start_build() -> void:
+func _start_build(kind: String = "warehouse") -> void:
+ if not BuildRules.CATALOG.has(kind):
+  return
+ build_kind = kind
  build = true
- status.text = "Выберите свободную клетку"
+ preview_cell = Vector2i(-1,-1)
+ preview.visible = false
+ var item: Dictionary = BuildRules.definition(kind)
+ status.text = "%s %d×%d: %d ₽. Выберите клетку" % [item["title"],item["size"],item["size"],item["cost"]]
+func _cancel_build() -> void:
+ build = false
+ preview_cell = Vector2i(-1,-1)
+ if preview != null:
+  preview.visible = false
+func _update_preview(position: Vector2) -> void:
+ if not build:
+  return
+ var cell := _screen_cell(position)
+ preview_cell = cell
+ if cell.x < 0:
+  preview.visible = false
+  return
+ var size: int = int(BuildRules.definition(build_kind)["size"])
+ var valid := BuildRules.can_place(cell,structures,build_kind) and cash >= BuildRules.price(build_kind)
+ var mesh := BoxMesh.new()
+ mesh.size = Vector3(float(size)*CELL,0.12,float(size)*CELL)
+ preview.mesh = mesh
+ preview.position = Vector3((float(cell.x)+float(size)*0.5)*CELL,0.18,(float(cell.y)+float(size)*0.5)*CELL)
+ var material := StandardMaterial3D.new()
+ material.albedo_color = Color(0.2,0.9,0.35,0.6) if valid else Color(0.95,0.22,0.2,0.6)
+ material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+ material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+ preview.material_override = material
+ preview.visible = true
 func _sell() -> void:
  if grain == 0:
   status.text = "Склад пуст"
@@ -187,14 +233,19 @@ func _process(delta: float) -> void:
  game_ui.update_hud(day,cash,grain,stage,job,progress,build)
 func _camera() -> void:
  camera_rig.apply(cam)
-func _pick_cell(position: Vector2) -> void:
+func _screen_cell(position: Vector2) -> Vector2i:
  var origin := cam.project_ray_origin(position)
  var dir := cam.project_ray_normal(position)
  if abs(dir.y) < 0.00001:
-  return
+  return Vector2i(-1,-1)
  var p := origin+dir*(-origin.y/dir.y)
  var cell := Vector2i(floori(p.x/CELL),floori(p.z/CELL))
  if cell.x < 0 or cell.y < 0 or cell.x >= 16 or cell.y >= 16:
+  return Vector2i(-1,-1)
+ return cell
+func _pick_cell(position: Vector2) -> void:
+ var cell := _screen_cell(position)
+ if cell.x < 0:
   return
  if build:
   _build(cell)
@@ -217,23 +268,32 @@ func _unhandled_input(e: InputEvent) -> void:
   if e.position.distance_to(touch_start) > 14:
    touch_moved = true
   camera_rig.touch(e)
+  if build:
+   _update_preview(e.position)
  elif e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
   _pick_cell(e.position)
+ elif e is InputEventMouseMotion:
+  camera_rig.mouse(e)
+  _update_preview(e.position)
+ elif e is InputEventKey and e.pressed and e.keycode == KEY_ESCAPE and build:
+  _cancel_build()
+  status.text = "Строительство отменено"
  else:
   camera_rig.mouse(e)
  _camera()
 func _build(cell: Vector2i) -> void:
- if cash < 900:
+ var price: int = BuildRules.price(build_kind)
+ if cash < price:
   status.text = "Недостаточно денег"
   return
- if not BuildRules.can_place(cell, structures):
+ if not BuildRules.can_place(cell,structures,build_kind):
   status.text = "Недоступная или занятая клетка"
   return
- cash -= 900
- structures["%d,%d" % [cell.x,cell.y]] = true
- build = false
+ cash -= price
+ structures["%d,%d" % [cell.x,cell.y]] = build_kind
+ _cancel_build()
  _draw()
- status.text = "Склад построен!"
+ status.text = "Постройка завершена!"
 func _snapshot() -> Dictionary:
  return {"version":1,"cash":cash,"grain":grain,"stage":stage,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds}
 func _save() -> void:
@@ -250,6 +310,7 @@ func _load() -> void:
  grain = int(data["grain"])
  stage = int(data["stage"])
  structures = data["structures"].duplicate()
+ _cancel_build()
  job = str(data["job"])
  progress = float(data["progress"])
  day = int(data["day"])
