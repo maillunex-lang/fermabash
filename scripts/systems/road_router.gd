@@ -12,7 +12,7 @@ static func find_route(start: Vector2i, target: Vector2i, extra: Dictionary, roa
  while not frontier.is_empty():
   var best := 0
   for i in range(1,frontier.size()):
-   if float(distance[Territory.key(frontier[i])])+float(frontier[i].distance_to(target)) < float(distance[Territory.key(frontier[best])])+float(frontier[best].distance_to(target)):
+   if float(distance[Territory.key(frontier[i])]) < float(distance[Territory.key(frontier[best])]):
     best = i
   var current: Vector2i = frontier[best]
   frontier.remove_at(best)
