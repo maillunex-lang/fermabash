@@ -10,6 +10,12 @@ func _test() -> void:
  assert(scene.game_ui.action_buttons.size() == 17)
  assert(scene.game_ui.menu_buttons.size() == 4)
  scene.game_ui.action_requested.emit("new")
+ assert(scene.onboarding.overlay.visible)
+ scene.onboarding.name_input.text = "Тестовая ферма"
+ scene.onboarding.district_select.select(1)
+ scene.onboarding._district_changed(1)
+ scene.onboarding._choose(Vector2i(2,2))
+ scene.onboarding._confirm()
  assert(scene.running)
  assert(not scene.game_ui.menu_overlay.visible)
  scene.game_ui.action_requested.emit("prepare")
