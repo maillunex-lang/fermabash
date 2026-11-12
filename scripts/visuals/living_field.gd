@@ -24,13 +24,14 @@ func _ready() -> void:
  crop_batch.transform_format = MultiMesh.TRANSFORM_3D
  crop_batch.use_colors = true
  crop_batch.mesh = crop_mesh
- crop_batch.instance_count = 320
+ crop_batch.instance_count = 640
  crops.multimesh = crop_batch
- var mat := StandardMaterial3D.new()
- mat.vertex_color_use_as_albedo = true
- mat.roughness = 1.0
- soil.material_override = mat
- crops.material_override = mat
+ var soil_mat := ShaderMaterial.new()
+ soil_mat.shader = load("res://scripts/visuals/ground.gdshader")
+ soil.material_override = soil_mat
+ var wheat_mat := ShaderMaterial.new()
+ wheat_mat.shader = load("res://scripts/visuals/wheat.gdshader")
+ crops.material_override = wheat_mat
 
 func update_field(stage: int, prepared: bool, job: String, progress: float) -> void:
  # Rebuild only when a visible milestone changes (16 buckets across a job).
@@ -59,14 +60,14 @@ func update_field(stage: int, prepared: bool, job: String, progress: float) -> v
    var visible_crop := stage > 0 or (job == "sow" and touched)
    if job == "harvest" and touched:
     visible_crop = false
-   for row in range(4):
-    for col in range(5):
+   for row in range(5):
+    for col in range(8):
      var height := 0.001
      var crop_color := Color("62a64c")
      if visible_crop:
       height = 0.24 if job == "sow" else (0.55 + 0.3*progress if stage == 1 else 1.05)
       crop_color = Color("65a64c") if stage == 1 or job == "sow" else Color("e2bd51")
-     var pos := Vector3((float(x)+0.1+float(row)*0.23)*CELL,height*0.5,(float(z)+0.1+float(col)*0.19)*CELL)
+     var pos := Vector3((float(x)+0.08+float(row)*0.18)*CELL,height*0.5,(float(z)+0.08+float(col)*0.12)*CELL)
      crops.multimesh.set_instance_transform(stalk,Transform3D(Basis().scaled(Vector3(1,height,1)),pos))
      crops.multimesh.set_instance_color(stalk,crop_color if visible_crop else Color(0,0,0,0))
      stalk += 1

@@ -3,11 +3,21 @@ extends RefCounted
 const CELL := 3.0
 const GRID := 16
 
-static func material(color: Color, roughness := 1.0) -> StandardMaterial3D:
+static func material(color: Color, roughness := 0.84) -> StandardMaterial3D:
  var mat := StandardMaterial3D.new()
  mat.albedo_color = color
  mat.roughness = roughness
+ mat.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
+ mat.metallic_specular = 0.18
  return mat
+static func wheat_material(color: Color) -> ShaderMaterial:
+ var mat := ShaderMaterial.new()
+ mat.shader = load("res://scripts/visuals/wheat.gdshader")
+ # Vertex color path is unused here; tint via albedo uniform fallback by painting the mesh.
+ var fallback := StandardMaterial3D.new()
+ fallback.albedo_color = color
+ fallback.roughness = 0.55
+ return mat if mat.shader != null else fallback
 
 static func box(parent: Node3D, pos: Vector3, size: Vector3, color: Color) -> void:
  var node := MeshInstance3D.new()
@@ -73,9 +83,23 @@ static func decorate(parent: Node3D, stage: int) -> void:
       var pz := (float(z)+0.1+float(col)*0.19)*CELL
       var h := 0.55 if stage == 1 else 1.05
       crops.append(Transform3D(Basis(),Vector3(px,h*0.5,pz)))
-  instances(parent,crop_mesh,material(Color("5d9f3f") if stage == 1 else Color("e2bd51")),crops)
+  var crop_mat := ShaderMaterial.new()
+  crop_mat.shader = load("res://scripts/visuals/wheat.gdshader")
+  crop_mat.set_shader_parameter("albedo_tint", Color("5d9f3f") if stage == 1 else Color("e2bd51"))
+  crop_mat.set_shader_parameter("wind", 0.18)
+  instances(parent,crop_mesh,crop_mat,crops)
  # Road shoulder and center markings are purely decorative.
  for z in [7,8]:
   for x in range(16):
    if x % 3 == 0:
     box(parent,Vector3((x+0.5)*CELL,0.025,(z+0.5)*CELL),Vector3(1.1,0.025,0.08),Color("d4cba2"))
+ var water := MeshInstance3D.new()
+ var pond := PlaneMesh.new()
+ pond.size = Vector2(11, 7)
+ water.mesh = pond
+ var water_mat := ShaderMaterial.new()
+ water_mat.shader = load("res://scripts/visuals/water.gdshader")
+ water.material_override = water_mat
+ water.position = Vector3(-8, 0.04, 22)
+ parent.add_child(water)
+

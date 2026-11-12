@@ -1,0 +1,87 @@
+extends SceneTree
+const Market = preload("res://scripts/systems/market_rules.gd")
+const SaveStore = preload("res://scripts/systems/save_store.gd")
+func _initialize() -> void:
+ call_deferred("_test")
+func _test() -> void:
+ assert(Market.trading_day(0.0) == 1)
+ assert(Market.trading_day(89.9) == 1)
+ assert(Market.trading_day(90.0) == 2)
+ assert(Market.spot_price(1) == 450)
+ assert(Market.spot_price(2) == 470)
+ assert(Market.forecast(1, 5).size() == 5)
+ assert(Market.offer_short(1)["price"] == 530)
+ assert(Market.offer_short(1)["tons"] == 3)
+ assert(Market.offer_bulk(1)["deadline"] == 5)
+ assert(Market.payout(Market.offer_short(1)) == 1590)
+ assert(Market.job_seconds(1, 0) == 6.0)
+ assert(Market.job_seconds(1, 5) == 4.5)
+ assert(not Market.crew_active(6, 5))
+ var scene = load("res://scenes/Main.tscn").instantiate()
+ root.add_child(scene)
+ await process_frame
+ scene._new()
+ assert(scene._trading_day() == 1)
+ scene.grain = 3
+ scene.cash = 1840
+ scene._sell()
+ assert(scene.cash == 3190)
+ assert(scene.grain == 0)
+ scene._ui_action("contract_short")
+ assert(str(scene.contract["id"]) == "short-1")
+ assert(int(scene.contract["price"]) == 530)
+ scene._ui_action("contract_bulk")
+ assert(str(scene.contract["id"]) == "short-1")
+ scene.grain = 3
+ var paid_from: int = scene.cash
+ scene._ui_action("contract_short")
+ assert(scene.contract.is_empty())
+ assert(scene.grain == 0)
+ assert(scene.cash == paid_from + 1590)
+ scene.grain = 2
+ scene._ui_action("contract_bulk")
+ assert(not scene.contract.is_empty())
+ var broke: int = scene.cash
+ scene._ui_action("contract_bulk")
+ assert(scene.grain == 2)
+ assert(scene.cash == broke)
+ scene.elapsed_seconds = 90.0 * 5
+ scene._expire_contract()
+ assert(scene.contract.is_empty())
+ assert(scene.cash == broke - Market.FINE)
+ scene._new()
+ scene._ui_action("hire_crew")
+ assert(scene.cash == 1600)
+ assert(scene.crew_until_day == 5)
+ scene._ui_action("hire_crew")
+ assert(scene.cash == 1600)
+ scene._save()
+ var expected_id := ""
+ scene._ui_action("contract_short")
+ expected_id = str(scene.contract["id"])
+ scene._save()
+ scene.contract = {}
+ scene.crew_until_day = 0
+ scene._load()
+ assert(str(scene.contract["id"]) == expected_id)
+ assert(scene.crew_until_day == 5)
+ var legacy: Dictionary = scene._snapshot()
+ legacy.erase("contract")
+ legacy.erase("crew_until_day")
+ assert(SaveStore.write(scene.SAVE, legacy))
+ scene.contract = {"id": "bad"}
+ scene.crew_until_day = 9
+ scene._load()
+ assert(scene.contract.is_empty())
+ assert(scene.crew_until_day == 0)
+ assert(scene.game_ui.action_buttons.has("contract_short"))
+ assert(scene.game_ui.action_buttons.has("hire_crew"))
+ scene._ui_action("tab_market")
+ assert(scene.game_ui.active_tab == "market")
+ assert(scene.game_ui.action_buttons["hire_crew"].visible)
+ assert(not scene.game_ui.action_buttons["prepare"].visible)
+ scene._ui_action("tab_field")
+ assert(not scene.game_ui.action_buttons["hire_crew"].visible)
+ assert(scene.game_ui.action_buttons["prepare"].visible)
+ print("MARKET_TEST_PASS")
+ quit()

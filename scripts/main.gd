@@ -13,8 +13,10 @@ const GameUI = preload("res://scripts/ui/game_ui.gd")
 const FarmRegistry = preload("res://scripts/systems/farm_registry.gd")
 const FarmOnboarding = preload("res://scripts/ui/farm_onboarding.gd")
 const ProductionRules = preload("res://scripts/systems/production_rules.gd")
+const MarketRules = preload("res://scripts/systems/market_rules.gd")
 const FieldRoute = preload("res://scripts/systems/field_route.gd")
 const LivingField = preload("res://scripts/visuals/living_field.gd")
+const FarmFX = preload("res://scripts/visuals/farm_fx.gd")
 var elapsed_seconds := 0.0
 var cash := 2000
 var grain := 0
@@ -45,8 +47,11 @@ var preview_cell := Vector2i(-1,-1)
 var preview: MeshInstance3D
 var running := false
 var farm_profile: Dictionary = {}
+var contract: Dictionary = {}
+var crew_until_day := 0
 var onboarding: CanvasLayer
 var living_field: Node3D
+var farm_fx: Node3D
 var world: Node3D
 var cam: Camera3D
 var hud: Label
@@ -68,19 +73,50 @@ func _ready() -> void:
  add_child(preview)
  preview.visible = false
  var sun := DirectionalLight3D.new()
- sun.rotation_degrees = Vector3(-55,-30,0)
- sun.light_energy = 1.25
+ sun.rotation_degrees = Vector3(-42,-28,0)
+ sun.light_color = Color("ffe4bf")
+ sun.light_energy = 1.7
  sun.shadow_enabled = false
  add_child(sun)
+ var fill := DirectionalLight3D.new()
+ fill.rotation_degrees = Vector3(-18,140,0)
+ fill.light_color = Color("9eb7c9")
+ fill.light_energy = 0.28
+ fill.shadow_enabled = false
+ add_child(fill)
  var ambience := WorldEnvironment.new()
  var env := Environment.new()
  env.background_mode = Environment.BG_COLOR
- env.background_color = Color("a6c9db")
+ env.background_color = Color("8eb8cc")
  env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
- env.ambient_light_color = Color("e1e8d5")
- env.ambient_light_energy = 0.8
+ env.ambient_light_color = Color("f4ead2")
+ env.ambient_light_energy = 0.52
+ env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+ env.tonemap_exposure = 1.08
+ env.glow_enabled = true
+ env.glow_intensity = 0.62
+ env.glow_strength = 0.95
+ env.glow_bloom = 0.18
+ env.glow_hdr_threshold = 0.82
+ env.fog_enabled = true
+ env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+ env.fog_density = 0.0055
+ env.fog_light_color = Color("f6e8c8")
+ env.fog_aerial_perspective = 0.4
  ambience.environment = env
  add_child(ambience)
+ farm_fx = FarmFX.new()
+ add_child(farm_fx)
+ var grade := CanvasLayer.new()
+ grade.layer = 20
+ var veil := ColorRect.new()
+ veil.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+ veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+ var veil_mat := ShaderMaterial.new()
+ veil_mat.shader = load("res://scripts/visuals/vignette.gdshader")
+ veil.material = veil_mat
+ grade.add_child(veil)
+ add_child(grade)
  cam = Camera3D.new()
  add_child(cam)
  cam.current = true
@@ -115,6 +151,10 @@ func _ui_action(action: String) -> void:
   "sow": _request_field_action("sow")
   "harvest": _request_field_action("harvest")
   "sell": _sell()
+  "contract_short": _contract_action("short")
+  "contract_bulk": _contract_action("bulk")
+  "hire_crew": _hire_crew()
+  "tab_market": game_ui.show_tab("market")
   "build": _start_build()
   "build_shed": _start_build("shed")
   "build_workshop": _start_build("workshop")
@@ -177,6 +217,8 @@ func _new() -> void:
  field_group_id = 0
  next_field_group_id = 1
  field_tasks.clear()
+ contract = {}
+ crew_until_day = 0
  active_plot = ""
  travel_route.clear()
  _cancel_build()
@@ -466,7 +508,8 @@ func _travel(delta: float) -> void:
   travel_route.clear()
   return
  var destination: Vector2i = travel_route[travel_index+1]
- travel_fraction += delta*0.45*_road_speed_at(destination)
+ var pace := 0.45 * (MarketRules.CREW_TRAVEL if MarketRules.crew_active(_trading_day(), crew_until_day) else 1.0)
+ travel_fraction += delta*pace*_road_speed_at(destination)
  while travel_fraction >= 1.0 and travel_index < travel_route.size()-1:
   travel_fraction -= 1.0
   travel_index += 1
@@ -483,13 +526,66 @@ func _travel(delta: float) -> void:
 func _road_speed_at(cell: Vector2i) -> float:
  return Territory.road_multiplier(str(roads.get(Territory.key(cell),"")))
 
+func _trading_day() -> int:
+ return MarketRules.trading_day(elapsed_seconds)
+func _expire_contract() -> void:
+ if contract.is_empty() or _trading_day() <= int(contract.get("deadline", _trading_day())):
+  return
+ var fine := mini(cash, MarketRules.FINE)
+ cash -= fine
+ contract = {}
+ _save()
+ status.text = "Контракт сорван, штраф %d ₽" % fine
+func _contract_action(kind: String) -> void:
+ if contract.is_empty():
+  var offer: Dictionary = MarketRules.offer_short(_trading_day()) if kind == "short" else MarketRules.offer_bulk(_trading_day())
+  contract = offer.duplicate()
+  _save()
+  status.text = "Контракт принят: %d т до торгового дня %d по %d ₽" % [int(offer["tons"]), int(offer["deadline"]), int(offer["price"])]
+  return
+ if str(contract.get("id","")).begins_with(kind):
+  _deliver_contract()
+ else:
+  status.text = "Сначала завершите текущий контракт"
+func _deliver_contract() -> void:
+ if contract.is_empty():
+  status.text = "Нет активного контракта"
+  return
+ if _trading_day() > int(contract.get("deadline", _trading_day())):
+  _expire_contract()
+  return
+ var tons := int(contract["tons"])
+ if grain < tons:
+  status.text = "Для сдачи нужно %d т, на складе %d" % [tons, grain]
+  return
+ var pay := MarketRules.payout(contract)
+ grain -= tons
+ cash += pay
+ contract = {}
+ _save()
+ status.text = "Контракт сдан: +%d ₽" % pay
+func _hire_crew() -> void:
+ var trading := _trading_day()
+ if MarketRules.crew_active(trading, crew_until_day):
+  status.text = "Бригада уже нанята до торгового дня %d" % crew_until_day
+  return
+ if cash < MarketRules.CREW_COST:
+  status.text = "Не хватает денег на бригаду"
+  return
+ cash -= MarketRules.CREW_COST
+ crew_until_day = trading + MarketRules.CREW_DAYS - 1
+ _save()
+ status.text = "Бригада нанята до торгового дня %d" % crew_until_day
 func _sell() -> void:
  if grain == 0:
   status.text = "Склад пуст"
   return
- cash += ProductionRules.sale_value(grain)
+ var price := MarketRules.spot_price(_trading_day())
+ var sold := grain
+ cash += price * sold
  grain = 0
- status.text = "Зерно продано"
+ _save()
+ status.text = "Продано %d т по %d ₽" % [sold, price]
 func _road_patrol(delta: float) -> void:
  if job != "" or tractor == null or roads.size() < 2:
   return
@@ -520,6 +616,10 @@ func _process(delta: float) -> void:
  if not running:
   return
  elapsed_seconds += delta
+ if farm_fx != null:
+  var at := tractor.global_position if tractor != null else Vector3(18,0.4,18)
+  farm_fx.set_working(job != "", at)
+ _expire_contract()
  if job != "" and active_plot != "" and not travel_route.is_empty():
   _travel(delta)
  day = GameClock.day_from_seconds(elapsed_seconds)
@@ -532,7 +632,7 @@ func _process(delta: float) -> void:
     _draw()
     _save()
  if job != "" and not (active_plot != "" and not travel_route.is_empty()):
-  progress += delta/6.0
+  progress += delta/MarketRules.job_seconds(_trading_day(), crew_until_day)
   progress = minf(progress,1.0)
   if active_plot == "":
    _update_machine_position()
@@ -578,6 +678,7 @@ func _process(delta: float) -> void:
  game_ui.update_hud(day,cash,grain,int(displayed["stage"]),job,progress,build,bool(displayed["prepared"]),ProductionRules.capacity(structures),selected_plot != "")
  if selected_plot != "":
   game_ui.task.text = "Поле %s (%d клеток): %s" % [selected_plot,_group_cells(selected_plot).size(),["Подготовка" if not bool(displayed["prepared"]) else "Готово к посеву","Растёт","Созрело"][int(displayed["stage"])]]
+ game_ui.refresh_economy(_trading_day(), contract, crew_until_day, cash, grain)
 func _camera() -> void:
  camera_rig.apply(cam)
 func _screen_cell(position: Vector2) -> Vector2i:
@@ -679,7 +780,7 @@ func _route_save() -> Array:
  return result
 
 func _snapshot() -> Dictionary:
- return {"version":1,"cash":cash,"grain":grain,"stage":stage,"prepared":prepared,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds,"extra_land":extra_land.duplicate(),"field_plots":field_plots.duplicate(),"roads":roads.duplicate(),"farm_profile":farm_profile.duplicate(true),"selected_plot":selected_plot,"active_plot":active_plot,"travel_index":travel_index,"travel_fraction":travel_fraction,"travel_route":_route_save(),"next_field_group_id":next_field_group_id,"field_tasks":field_tasks.duplicate(true)}
+ return {"version":1,"cash":cash,"grain":grain,"stage":stage,"prepared":prepared,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds,"extra_land":extra_land.duplicate(),"field_plots":field_plots.duplicate(),"roads":roads.duplicate(),"farm_profile":farm_profile.duplicate(true),"selected_plot":selected_plot,"active_plot":active_plot,"travel_index":travel_index,"travel_fraction":travel_fraction,"travel_route":_route_save(),"next_field_group_id":next_field_group_id,"field_tasks":field_tasks.duplicate(true),"contract":contract.duplicate(true),"crew_until_day":crew_until_day}
 func _save() -> void:
  if SaveStore.write(SAVE, _snapshot()):
   status.text = "Сохранено"
@@ -721,6 +822,11 @@ func _load() -> void:
  travel_index = clampi(int(data.get("travel_index",0)),0,maxi(0,travel_route.size()-1))
  travel_fraction = clampf(float(data.get("travel_fraction",0.0)),0.0,0.999)
  farm_profile = data.get("farm_profile",{}).duplicate(true)
+ crew_until_day = maxi(0, int(data.get("crew_until_day", 0)))
+ contract = {}
+ var loaded_contract: Variant = data.get("contract", {})
+ if loaded_contract is Dictionary and not loaded_contract.is_empty() and MarketRules.validate_contract(loaded_contract):
+  contract = loaded_contract.duplicate(true)
  if not farm_profile.is_empty():
   if not FarmRegistry.validate(farm_profile):
    farm_profile.clear()

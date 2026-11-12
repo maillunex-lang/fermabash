@@ -1,5 +1,6 @@
 extends CanvasLayer
 const FarmRegistry = preload("res://scripts/systems/farm_registry.gd")
+const MarketRules = preload("res://scripts/systems/market_rules.gd")
 ## Russian-language adaptive HUD and menu. All game actions are emitted as signals.
 signal action_requested(action: String)
 var stats: Label
@@ -85,6 +86,7 @@ func _make_hud() -> void:
  var brand := _label("AGRO EMPIRE  /  БАШКОРТОСТАН",22,ACCENT)
  info.add_child(brand)
  stats = _label("",24)
+ stats.autowrap_mode = TextServer.AUTOWRAP_WORD
  info.add_child(stats)
  task = _label("Хозяйство готово к работе",20,MUTED)
  info.add_child(task)
@@ -105,7 +107,7 @@ func _make_hud() -> void:
  var tabs := HBoxContainer.new()
  tabs.add_theme_constant_override("separation",8)
  outer.add_child(tabs)
- for entry in [["🌱 Поля","field"],["🏗 Строительство","construction"],["🗺 Земля и дороги","territory"]]:
+ for entry in [["Поля","field"],["Стройка","construction"],["Земля","territory"],["Рынок","market"]]:
   var tab := _button(tabs,entry[0],"tab_"+entry[1])
   tab_buttons[entry[1]] = tab
  var flow := GridContainer.new()
@@ -116,7 +118,8 @@ func _make_hud() -> void:
  for entry in [
   ["Подготовить","prepare"],["Посев","sow"],["Уборка","harvest"],["Продать","sell"],
   ["Навес 1×1","build_shed"],["Склад 2×2","build"],["Мастерская 3×3","build_workshop"],
-  ["Агрокомплекс 4×4","build_complex"],["Купить землю 100 ₽","buy_land"],["Новое поле 80 ₽/клетка","place_field"],["Грунт 40 ₽","road_dirt"],["Щебень 100 ₽","road_gravel"],["Асфальт 250 ₽","road_asphalt"],["Отмена","cancel_build"],["Сохранить","save"],["Карта","region_map"],["Меню","menu"]
+  ["Агрокомплекс 4×4","build_complex"],["Купить землю 100 ₽","buy_land"],["Новое поле 80 ₽/клетка","place_field"],["Грунт 40 ₽","road_dirt"],["Щебень 100 ₽","road_gravel"],["Асфальт 250 ₽","road_asphalt"],["Отмена","cancel_build"],["Сохранить","save"],["Карта","region_map"],["Меню","menu"],
+  ["Элеватор","contract_short"],["Мельница","contract_bulk"],["Бригада","hire_crew"]
  ]:
   action_buttons[entry[1]] = _button(flow,entry[0],entry[1])
  show_tab("field")
@@ -241,9 +244,10 @@ func _layout() -> void:
  var button_width := (width-64.0-float(flow.columns-1)*10.0)/float(flow.columns)
  for button in action_buttons.values():
   button.custom_minimum_size = Vector2(button_width,74)
+ var tab_count := maxi(1, tab_buttons.size())
  for button in tab_buttons.values():
-  button.custom_minimum_size = Vector2((width-66.0)/3.0,70)
-  button.add_theme_font_size_override("font_size",19)
+  button.custom_minimum_size = Vector2((width-66.0)/float(tab_count),64)
+  button.add_theme_font_size_override("font_size",18 if compact else 20)
  actions_panel.size = Vector2(width,0)
  actions_panel.position = Vector2(margin,viewport.y-actions_panel.get_combined_minimum_size().y-margin)
  title_label.add_theme_font_size_override("font_size",32)
@@ -257,7 +261,7 @@ func hide_menu() -> void:
 func set_status(value: String) -> void:
  message.text = value
 func update_hud(day: int, cash: int, grain: int, stage: int, job: String, progress: float, building: bool, prepared: bool = false, capacity: int = 6, plot_selected: bool = false) -> void:
- stats.text = "День %d     %d ₽     Зерно: %d/%d т" % [day,cash,grain,capacity]
+ stats.text = "Сезон %d    %d ₽    Зерно %d/%d т" % [day,cash,grain,capacity]
  var stage_name: String = ["Поле подготовлено" if prepared else "Поле требует подготовки","Посевы растут","Урожай созрел"][clampi(stage,0,2)]
  task.text = ("Строительство: выберите клетку" if building else ("Работа: "+("посев" if job == "sow" else "уборка") if job != "" else stage_name))
  progress_bar.value = clampf(progress*100.0,0.0,100.0)
@@ -276,10 +280,40 @@ func show_tab(tab: String) -> void:
  for action in action_buttons:
   var construction: bool = str(action).begins_with("build")
   var territory: bool = action in ["buy_land","place_field","road_dirt","road_gravel","road_asphalt"]
-  var visible_action: bool = territory if tab == "territory" else (construction if tab == "construction" else not construction and not territory)
+  var market: bool = action in ["contract_short","contract_bulk","hire_crew"]
+  var visible_action := false
+  if tab == "territory":
+   visible_action = territory
+  elif tab == "construction":
+   visible_action = construction
+  elif tab == "market":
+   visible_action = market
+  else:
+   visible_action = not construction and not territory and not market
   if action == "cancel_build":
-   visible_action = tab != "field"
+   visible_action = tab == "construction" or tab == "territory"
   action_buttons[action].visible = visible_action
  call_deferred("_layout")
  for key in tab_buttons:
   tab_buttons[key].disabled = key == tab
+
+func refresh_economy(trading: int, contract: Dictionary, crew_until: int, cash: int, grain: int) -> void:
+ var price := MarketRules.spot_price(trading)
+ stats.text += "    Торги %d · %d ₽/т" % [trading, price]
+ var short_offer := MarketRules.offer_short(trading)
+ var bulk_offer := MarketRules.offer_bulk(trading)
+ var short_btn: Button = action_buttons["contract_short"]
+ var bulk_btn: Button = action_buttons["contract_bulk"]
+ var hire_btn: Button = action_buttons["hire_crew"]
+ if contract.is_empty():
+  short_btn.text = "Элеватор %d т · %d ₽" % [int(short_offer["tons"]), int(short_offer["price"])]
+  bulk_btn.text = "Мельница %d т · %d ₽" % [int(bulk_offer["tons"]), int(bulk_offer["price"])]
+ else:
+  var active_short := str(contract.get("id","")).begins_with("short")
+  short_btn.text = ("Сдать элеватору %d т" % int(contract.get("tons",0))) if active_short else "Элеватор занят"
+  bulk_btn.text = ("Сдать мельнице %d т" % int(contract.get("tons",0))) if not active_short else "Мельница занята"
+ var hired := MarketRules.crew_active(trading, crew_until)
+ hire_btn.text = ("Бригада до дня %d" % crew_until) if hired else ("Нанять бригаду %d ₽" % MarketRules.CREW_COST)
+ if active_tab == "market":
+  var ahead := MarketRules.forecast(trading, 5)
+  task.text = "Прогноз ₽/т: %d  %d  %d  %d  %d" % [ahead[0], ahead[1], ahead[2], ahead[3], ahead[4]]

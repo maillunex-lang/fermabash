@@ -9,6 +9,8 @@ Project: /opt/fermabash/project (development checkout, no production deployment)
 - `scripts/systems/build_rules.gd`: deterministic placement rules.
 - `scripts/systems/save_store.gd`: versioned save validation and file IO.
 - `scripts/systems/game_clock.gd`: time scale (7 real days = 1 game year).
+- `scripts/systems/market_rules.gd`: local trading-day prices, elevator contracts and hired crew. Not server authoritative.
+- `scripts/visuals/*.gdshader`: presentation-only wheat, soil, water and vignette. Gameplay state is unchanged.
 - `tests/`: headless gameplay and system tests.
 - `export_presets.cfg`: Android arm64 debug export.
 
