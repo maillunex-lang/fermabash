@@ -20,12 +20,17 @@ func _test() -> void:
  var roads: Dictionary = {"1,8":"asphalt","2,8":"asphalt","3,8":"asphalt"}
  assert(Router.travel_time(plain,roads) < Router.travel_time(plain,{}))
  assert(Router.find_route(Vector2i(0,8),Vector2i(23,23),{},{}).is_empty())
+ var detour: Array[Vector2i] = Router.find_route(Vector2i(0,8),Vector2i(3,8),{},{},{"1,8":true,"2,8":true})
+ assert(detour.size() > plain.size())
+ assert(not detour.has(Vector2i(1,8)))
  var scene = load("res://scenes/Main.tscn").instantiate()
  root.add_child(scene)
  await process_frame
  scene._new()
  scene._start_territory("field")
  assert(scene._develop(Vector2i(1,1)))
+ assert(scene._develop(Vector2i(1,2)))
+ assert(scene._plot_state("1,1") == scene._plot_state("1,2"))
  scene.selected_plot = "1,1"
  var original_cash: int = scene.cash
  scene._job("prepare")
@@ -35,6 +40,7 @@ func _test() -> void:
   scene._process(0.2)
  assert(bool(scene._plot_state("1,1")["prepared"]))
  assert(scene.stage == 0)
+ assert(not bool(scene._plot_state("1,2")["prepared"]))
  scene._job("sow")
  for i in range(200):
   scene._process(0.2)
@@ -46,6 +52,7 @@ func _test() -> void:
  for i in range(200):
   scene._process(0.2)
  assert(scene.grain == 3)
+ assert(int(scene._plot_state("1,2")["stage"]) == 0)
  assert(int(scene._plot_state("1,1")["stage"]) == 0)
  scene._save()
  var expected: Dictionary = scene._snapshot()
