@@ -12,6 +12,9 @@ var info_panel: PanelContainer
 var actions_panel: PanelContainer
 var title_label: Label
 var main_root: Control
+var active_tab := "field"
+var tab_buttons: Dictionary = {}
+var camera_panel: HBoxContainer
 
 const BG := Color("132b28")
 const PANEL := Color("183a34",0.94)
@@ -82,17 +85,34 @@ func _make_hud() -> void:
  actions_panel = PanelContainer.new()
  actions_panel.add_theme_stylebox_override("panel",_style(PANEL))
  main_root.add_child(actions_panel)
+ var outer := VBoxContainer.new()
+ outer.add_theme_constant_override("separation",8)
+ actions_panel.add_child(outer)
+ var tabs := HBoxContainer.new()
+ tabs.add_theme_constant_override("separation",8)
+ outer.add_child(tabs)
+ for entry in [["🌱 Поля","field"],["🏗 Строительство","construction"]]:
+  var tab := _button(tabs,entry[0],"tab_"+entry[1])
+  tab_buttons[entry[1]] = tab
  var flow := GridContainer.new()
  flow.columns = 3
  flow.add_theme_constant_override("h_separation",8)
  flow.add_theme_constant_override("v_separation",8)
- actions_panel.add_child(flow)
+ outer.add_child(flow)
  for entry in [
   ["Подготовить","prepare"],["Посев","sow"],["Уборка","harvest"],["Продать","sell"],
   ["Навес 1×1","build_shed"],["Склад 2×2","build"],["Мастерская 3×3","build_workshop"],
   ["Агрокомплекс 4×4","build_complex"],["Отмена","cancel_build"],["Сохранить","save"],["Меню","menu"]
  ]:
   action_buttons[entry[1]] = _button(flow,entry[0],entry[1])
+ camera_panel = HBoxContainer.new()
+ camera_panel.add_theme_constant_override("separation",8)
+ main_root.add_child(camera_panel)
+ _button(camera_panel,"↶","camera_left")
+ _button(camera_panel,"↷","camera_right")
+ _button(camera_panel,"＋","camera_in")
+ _button(camera_panel,"－","camera_out")
+ show_tab("field")
 
 func _make_menu() -> void:
  menu_overlay = ColorRect.new()
@@ -126,12 +146,15 @@ func _layout() -> void:
  var compact := viewport.x < 900
  info_panel.position = Vector2(12,12)
  info_panel.size = Vector2(minf(viewport.x-24,560 if not compact else viewport.x-24),0)
- actions_panel.position = Vector2(12,viewport.y-(250 if compact else 180))
+ actions_panel.position = Vector2(12,viewport.y-(280 if compact else 205))
  actions_panel.size = Vector2(minf(viewport.x-24,510 if compact else 840),0)
- var flow := actions_panel.get_child(0) as GridContainer
- flow.columns = 3 if compact else 6
+ var flow := actions_panel.get_child(0).get_child(1) as GridContainer
+ flow.columns = 3 if compact else 4
  for button in action_buttons.values():
   button.custom_minimum_size = Vector2(maxf(100,(actions_panel.size.x-38)/float(flow.columns)),52 if compact else 58)
+ camera_panel.position = Vector2(maxf(12,viewport.x-284),12)
+ for button in camera_panel.get_children():
+  button.custom_minimum_size = Vector2(62,58)
  title_label.add_theme_font_size_override("font_size",26 if compact else 34)
 
 func show_menu() -> void:
@@ -154,3 +177,11 @@ func update_hud(day: int, cash: int, grain: int, stage: int, job: String, progre
  action_buttons["build_workshop"].disabled = cash < 1600
  action_buttons["build_complex"].disabled = cash < 3000
  action_buttons["cancel_build"].disabled = not building
+
+func show_tab(tab: String) -> void:
+ active_tab = tab
+ for action in action_buttons:
+  var construction := action.begins_with("build") or action == "cancel_build"
+  action_buttons[action].visible = construction if tab == "construction" else not construction
+ for key in tab_buttons:
+  tab_buttons[key].disabled = key == tab
