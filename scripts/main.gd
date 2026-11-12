@@ -8,7 +8,8 @@ const GameClock = preload("res://scripts/systems/game_clock.gd")
 const FarmEnvironment = preload("res://scripts/visuals/farm_environment.gd")
 const StrategyCamera = preload("res://scripts/camera/strategy_camera.gd")
 const GameUI = preload("res://scripts/ui/game_ui.gd")
-const BetaCityCatalog = preload("res://scripts/systems/beta_city_catalog.gd")
+const FarmRegistry = preload("res://scripts/systems/farm_registry.gd")
+const FarmOnboarding = preload("res://scripts/ui/farm_onboarding.gd")
 const ProductionRules = preload("res://scripts/systems/production_rules.gd")
 const FieldRoute = preload("res://scripts/systems/field_route.gd")
 const LivingField = preload("res://scripts/visuals/living_field.gd")
@@ -32,6 +33,8 @@ var road_vehicle_progress := 0.0
 var preview_cell := Vector2i(-1,-1)
 var preview: MeshInstance3D
 var running := false
+var farm_profile: Dictionary = {}
+var onboarding: CanvasLayer
 var living_field: Node3D
 var world: Node3D
 var cam: Camera3D
@@ -76,26 +79,21 @@ func _ready() -> void:
  hud = game_ui.stats
  status = game_ui.message
  game_ui.action_requested.connect(_ui_action)
+ onboarding = FarmOnboarding.new()
+ add_child(onboarding)
+ onboarding.confirmed.connect(_farm_confirmed)
+ onboarding.cancelled.connect(_farm_cancelled)
+ onboarding.close()
  _draw()
  _menu()
 func _ui_action(action: String) -> void:
- if action.begins_with("region_city:"):
-  var city: Dictionary = BetaCityCatalog.city(action.trim_prefix("region_city:"))
-  if not city.is_empty():
-   status.text = "Выбран город: " + str(city["name"])
-  return
  if action.begins_with("region_district:"):
-  game_ui.show_district(action.trim_prefix("region_district:"))
-  return
- if action.begins_with("region_settlement:"):
-  var parts := action.split(":")
-  if parts.size() == 3:
-   game_ui.show_settlement(parts[1],parts[2])
+  game_ui.show_district(action.trim_prefix("region_district:"),farm_profile)
   return
  match action:
-  "region_map": game_ui.show_regions()
+  "region_map": game_ui.show_regions(farm_profile)
   "region_close": game_ui.hide_regions()
-  "region_back": game_ui.show_regions()
+  "region_back": game_ui._populate_regions(farm_profile)
   "region_district_list": game_ui._populate_regions()
   "tab_field": game_ui.show_tab("field")
   "tab_construction": game_ui.show_tab("construction")
@@ -115,10 +113,24 @@ func _ui_action(action: String) -> void:
   "road_asphalt": _start_territory("road_asphalt")
   "save": _save()
   "menu": _menu()
-  "new": _new()
+  "new": _begin_new()
   "continue": _continue()
   "settings": status.text = "Звук выключен. Настройки появятся позже."
   "quit": get_tree().quit()
+func _begin_new() -> void:
+ game_ui.hide_menu()
+ onboarding.open()
+
+func _farm_confirmed(profile: Dictionary) -> void:
+ farm_profile = profile.duplicate(true)
+ onboarding.close()
+ _new()
+ _save()
+
+func _farm_cancelled() -> void:
+ onboarding.close()
+ game_ui.show_menu()
+
 func _menu() -> void:
  running = false
  game_ui.hide_regions()
@@ -128,7 +140,7 @@ func _continue() -> void:
   _load()
   _close()
  else:
-  _new()
+  _begin_new()
 func _close() -> void:
  game_ui.hide_menu()
  running = true
@@ -461,7 +473,7 @@ func _build(cell: Vector2i) -> void:
  _draw()
  status.text = "Постройка завершена!"
 func _snapshot() -> Dictionary:
- return {"version":1,"cash":cash,"grain":grain,"stage":stage,"prepared":prepared,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds,"extra_land":extra_land.duplicate(),"field_plots":field_plots.duplicate(),"roads":roads.duplicate()}
+ return {"version":1,"cash":cash,"grain":grain,"stage":stage,"prepared":prepared,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds,"extra_land":extra_land.duplicate(),"field_plots":field_plots.duplicate(),"roads":roads.duplicate(),"farm_profile":farm_profile.duplicate(true)}
 func _save() -> void:
  if SaveStore.write(SAVE, _snapshot()):
   status.text = "Сохранено"
@@ -480,6 +492,13 @@ func _load() -> void:
  extra_land = data.get("extra_land",{}).duplicate()
  field_plots = data.get("field_plots",{}).duplicate()
  roads = data.get("roads",{}).duplicate()
+ farm_profile = data.get("farm_profile",{}).duplicate(true)
+ if not farm_profile.is_empty():
+  if not FarmRegistry.validate(farm_profile):
+   farm_profile.clear()
+  else:
+   farm_profile["plot_x"] = int(farm_profile["plot_x"])
+   farm_profile["plot_y"] = int(farm_profile["plot_y"])
  if not Territory.valid_layout(extra_land,field_plots,roads):
   extra_land.clear()
   field_plots.clear()
