@@ -4,6 +4,8 @@ const SAVE := "user://farm.json"
 const BuildRules = preload("res://scripts/systems/build_rules.gd")
 const SaveStore = preload("res://scripts/systems/save_store.gd")
 const GameClock = preload("res://scripts/systems/game_clock.gd")
+const FarmEnvironment = preload("res://scripts/visuals/farm_environment.gd")
+const StrategyCamera = preload("res://scripts/camera/strategy_camera.gd")
 var elapsed_seconds := 0.0
 var cash := 2000
 var grain := 0
@@ -21,17 +23,27 @@ var status: Label
 var menu: CenterContainer
 var tractor: Node3D
 var harvester: Node3D
-var angle := 0.75
-var zoom := 35.0
-var focus := Vector3(24,0,24)
-var dragging := false
-var last := Vector2.ZERO
+var camera_rig = StrategyCamera.new()
+var touch_start := Vector2.ZERO
+var touch_moved := false
+var touch_count := 0
 func _ready() -> void:
  world = Node3D.new()
  add_child(world)
  var sun := DirectionalLight3D.new()
  sun.rotation_degrees = Vector3(-55,-30,0)
+ sun.light_energy = 1.25
+ sun.shadow_enabled = false
  add_child(sun)
+ var ambience := WorldEnvironment.new()
+ var env := Environment.new()
+ env.background_mode = Environment.BG_COLOR
+ env.background_color = Color("a6c9db")
+ env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+ env.ambient_light_color = Color("e1e8d5")
+ env.ambient_light_energy = 0.8
+ ambience.environment = env
+ add_child(ambience)
  cam = Camera3D.new()
  add_child(cam)
  cam.current = true
@@ -121,6 +133,7 @@ func _draw() -> void:
    elif x >= 5 and x <= 8 and z >= 3 and z <= 6:
     color = Color("8d6841") if stage == 0 else (Color("65b548") if stage == 1 else Color("d4ae47"))
    _cube(world,Vector3((x+0.5)*CELL,-0.1,(z+0.5)*CELL),Vector3(2.94,0.2,2.94),color)
+ FarmEnvironment.decorate(world,stage)
  for key in structures:
   var p: Array = key.split(",")
   var x := int(p[0])
@@ -194,39 +207,41 @@ func _process(delta: float) -> void:
    _draw()
  hud.text = "День %d | %d ₽ | Зерно %d т | Погода: ясно | %s" % [day,cash,grain,job]
 func _camera() -> void:
- cam.position = focus+Vector3(sin(angle)*zoom,zoom*0.8,cos(angle)*zoom)
- cam.look_at(focus)
+ camera_rig.apply(cam)
+func _pick_cell(position: Vector2) -> void:
+ var origin := cam.project_ray_origin(position)
+ var dir := cam.project_ray_normal(position)
+ if abs(dir.y) < 0.00001:
+  return
+ var p := origin+dir*(-origin.y/dir.y)
+ var cell := Vector2i(floori(p.x/CELL),floori(p.z/CELL))
+ if cell.x < 0 or cell.y < 0 or cell.x >= 16 or cell.y >= 16:
+  return
+ if build:
+  _build(cell)
+ else:
+  status.text = "Клетка %d, %d" % [cell.x,cell.y]
 func _unhandled_input(e: InputEvent) -> void:
  if not running:
   return
- if e is InputEventMouseButton:
-  if e.button_index == MOUSE_BUTTON_WHEEL_UP and e.pressed:
-   zoom = max(12.0,zoom-3)
-  elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN and e.pressed:
-   zoom = min(70.0,zoom+3)
-  elif e.button_index == MOUSE_BUTTON_RIGHT:
-   dragging = e.pressed
-   last = e.position
-  elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
-   var origin := cam.project_ray_origin(e.position)
-   var dir := cam.project_ray_normal(e.position)
-   if abs(dir.y) > 0.00001:
-    var p := origin+dir*(-origin.y/dir.y)
-    var cell := Vector2i(floori(p.x/CELL),floori(p.z/CELL))
-    if build:
-     _build(cell)
-    else:
-     status.text = "Клетка %d, %d" % [cell.x,cell.y]
- elif e is InputEventMouseMotion and dragging:
-  focus += Vector3(-(e.position.x-last.x)*0.05,0,-(e.position.y-last.y)*0.05)
-  last = e.position
+ if e is InputEventScreenTouch:
+  if e.pressed:
+   touch_count += 1
+   touch_start = e.position
+   touch_moved = false
+  else:
+   touch_count = maxi(0,touch_count-1)
+   if not touch_moved and touch_count == 0:
+    _pick_cell(e.position)
+  camera_rig.touch(e)
  elif e is InputEventScreenDrag:
-  focus += Vector3(-e.relative.x*0.05,0,-e.relative.y*0.05)
- elif e is InputEventKey and e.pressed:
-  if e.keycode == KEY_Q:
-   angle -= 0.2
-  if e.keycode == KEY_E:
-   angle += 0.2
+  if e.position.distance_to(touch_start) > 14:
+   touch_moved = true
+  camera_rig.touch(e)
+ elif e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
+  _pick_cell(e.position)
+ else:
+  camera_rig.mouse(e)
  _camera()
 func _build(cell: Vector2i) -> void:
  if cash < 900:
