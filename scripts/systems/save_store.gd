@@ -31,7 +31,10 @@ static func read(path: String) -> Dictionary:
  var file := FileAccess.open(path, FileAccess.READ)
  if file == null:
   return {}
- var parsed: Variant = JSON.parse_string(file.get_as_text())
+ var json := JSON.new()
+ if json.parse(file.get_as_text()) != OK:
+  return {}
+ var parsed: Variant = json.data
  if not validate(parsed):
   return {}
  return parsed
