@@ -14,8 +14,9 @@ func _ready() -> void:
  for item in Catalog.CITIES:
   var city_id: String = str(item["id"])
   var button := Button.new()
-  button.text = "● " + str(item["name"])
-  button.custom_minimum_size = Vector2(120,42)
+  button.text = "●"
+  button.tooltip_text = str(item["name"])
+  button.custom_minimum_size = Vector2(54,54)
   button.add_theme_font_size_override("font_size",17)
   button.add_theme_color_override("font_color",Color("fff4dc"))
   button.pressed.connect(func(): _select(city_id))
@@ -31,17 +32,28 @@ func _select(city_id: String) -> void:
  queue_redraw()
 
 func _place_pins() -> void:
- var area := Rect2(Vector2(30,30),Vector2(maxf(size.x-60,1),maxf(size.y-60,1)))
+ var area := Rect2(Vector2(40,40),Vector2(maxf(size.x-80,1),maxf(size.y-80,1)))
+ var occupied: Array[Vector2] = []
  for item in Catalog.CITIES:
   var button: Button = buttons[str(item["id"])]
-  var normalized: Vector2 = Catalog.normalized(item)
-  var p := area.position + normalized*area.size
-  button.position = Vector2(clampf(p.x-60,0,maxf(size.x-120,0)),clampf(p.y-21,0,maxf(size.y-42,0)))
+  var p := area.position + Catalog.normalized(item)*area.size
+  var candidate := Vector2(clampf(p.x-27,0,maxf(size.x-54,0)),clampf(p.y-27,0,maxf(size.y-54,0)))
+  for attempt in range(8):
+   var collides := false
+   for existing in occupied:
+    if candidate.distance_to(existing) < 56:
+     collides = true
+     break
+   if not collides:
+    break
+   candidate.y = fposmod(candidate.y+58.0,maxf(size.y-54,1))
+  occupied.append(candidate)
+  button.position = candidate
  queue_redraw()
 
 func _draw() -> void:
  draw_rect(Rect2(Vector2.ZERO,size),MAP_BG,true)
- var area := Rect2(Vector2(30,30),Vector2(maxf(size.x-60,1),maxf(size.y-60,1)))
+ var area := Rect2(Vector2(40,40),Vector2(maxf(size.x-80,1),maxf(size.y-80,1)))
  for i in range(1,6):
   var x := area.position.x + area.size.x*float(i)/6.0
   draw_line(Vector2(x,0),Vector2(x,size.y),MAP_LINE,1.0)
@@ -51,3 +63,6 @@ func _draw() -> void:
  for item in Catalog.CITIES:
   var p := area.position+Catalog.normalized(item)*area.size
   draw_circle(p,7.0,PIN)
+  if buttons.has(str(item["id"])):
+   var center: Vector2 = (buttons[str(item["id"])] as Button).position+Vector2(27,27)
+   draw_line(p,center,PIN,1.5)
