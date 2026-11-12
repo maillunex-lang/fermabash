@@ -256,13 +256,13 @@ func hide_menu() -> void:
  menu_overlay.visible = false
 func set_status(value: String) -> void:
  message.text = value
-func update_hud(day: int, cash: int, grain: int, stage: int, job: String, progress: float, building: bool, prepared: bool = false, capacity: int = 6) -> void:
+func update_hud(day: int, cash: int, grain: int, stage: int, job: String, progress: float, building: bool, prepared: bool = false, capacity: int = 6, plot_selected: bool = false) -> void:
  stats.text = "День %d     %d ₽     Зерно: %d/%d т" % [day,cash,grain,capacity]
  var stage_name: String = ["Поле подготовлено" if prepared else "Поле требует подготовки","Посевы растут","Урожай созрел"][clampi(stage,0,2)]
  task.text = ("Строительство: выберите клетку" if building else ("Работа: "+("посев" if job == "sow" else "уборка") if job != "" else stage_name))
  progress_bar.value = clampf(progress*100.0,0.0,100.0)
- action_buttons["prepare"].disabled = job != "" or stage != 0 or prepared or cash < 60
- action_buttons["sow"].disabled = job != "" or stage != 0 or not prepared or cash < 100
+ action_buttons["prepare"].disabled = job != "" or stage != 0 or prepared or cash < (25 if plot_selected else 60)
+ action_buttons["sow"].disabled = job != "" or stage != 0 or not prepared or cash < (40 if plot_selected else 100)
  action_buttons["harvest"].disabled = job != "" or stage != 2 or grain+3 > capacity
  action_buttons["sell"].disabled = grain <= 0
  action_buttons["build"].disabled = cash < 900
