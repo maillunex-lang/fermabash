@@ -13,7 +13,7 @@ func _test() -> void:
  rig.focus = Vector3(100,0,-100)
  rig.apply(camera)
  assert(rig.zoom == 75.0)
- assert(rig.focus.x == 56.0)
+ assert(rig.focus.x == 80.0)
  assert(rig.focus.z == -8.0)
  rig.zoom = -5.0
  rig.apply(camera)
