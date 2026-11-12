@@ -123,7 +123,6 @@ func _make_menu() -> void:
 func _layout() -> void:
  var viewport := get_viewport().get_visible_rect().size
  var compact := viewport.x < 900
- var scale_factor := clampf(viewport.x / 1280.0,0.75,1.0)
  info_panel.position = Vector2(12,12)
  info_panel.size = Vector2(minf(viewport.x-24,560 if not compact else viewport.x-24),0)
  actions_panel.position = Vector2(12,viewport.y-(188 if compact else 102))
@@ -133,7 +132,6 @@ func _layout() -> void:
  for button in action_buttons.values():
   button.custom_minimum_size = Vector2(maxf(100,(actions_panel.size.x-38)/float(flow.columns)),52 if compact else 58)
  title_label.add_theme_font_size_override("font_size",26 if compact else 34)
- menu_overlay.size = viewport
 
 func show_menu() -> void:
  menu_overlay.visible = true
