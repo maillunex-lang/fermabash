@@ -11,7 +11,7 @@ func _test() -> void:
  root.add_child(scene)
  await process_frame
  scene._new()
- var before := scene._snapshot()
+ var before: Dictionary = scene._snapshot()
  scene._ui_action("region_map")
  assert(scene.game_ui.region_overlay.visible)
  scene._ui_action("region_district:ufa")
