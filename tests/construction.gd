@@ -24,7 +24,7 @@ func _test() -> void:
  assert(scene.structures["10,10"] == "shed")
  assert(not scene.build)
  scene._start_build("workshop")
- scene._build(Vector2i(11,10))
+ scene._build(Vector2i(10,10))
  assert(scene.cash == 1750)
  assert(scene.build)
  scene._cancel_build()
