@@ -3,8 +3,7 @@ extends RefCounted
 const REPUBLIC := "Республика Башкортостан"
 const DISTRICTS := [
  {"id":"ufa","name":"Уфимский район","settlements":[{"id":"mikhailovka","name":"Михайловка"}]},
- {"id":"sterlitamak","name":"Стерлитамакский район","settlements":[{"id":"naumovka","name":"Наумовка"}]},
- {"id":"birsk","name":"Бирский район","settlements":[{"id":"birsk_city","name":"Бирск"}]}
+ {"id":"sterlitamak","name":"Стерлитамакский район","settlements":[{"id":"naumovka","name":"Наумовка"}]}
 ]
 static func district(id: String) -> Dictionary:
  for item in DISTRICTS:
