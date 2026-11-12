@@ -7,11 +7,13 @@ const GameClock = preload("res://scripts/systems/game_clock.gd")
 const FarmEnvironment = preload("res://scripts/visuals/farm_environment.gd")
 const StrategyCamera = preload("res://scripts/camera/strategy_camera.gd")
 const GameUI = preload("res://scripts/ui/game_ui.gd")
+const ProductionRules = preload("res://scripts/systems/production_rules.gd")
 var elapsed_seconds := 0.0
 var cash := 2000
 var grain := 0
 var day := 1
 var stage := 0
+var prepared := false
 var job := ""
 var progress := 0.0
 var structures := {"2,2":true}
@@ -64,6 +66,7 @@ func _ready() -> void:
  _menu()
 func _ui_action(action: String) -> void:
  match action:
+  "prepare": _job("prepare")
   "sow": _job("sow")
   "harvest": _job("harvest")
   "sell": _sell()
@@ -96,6 +99,7 @@ func _new() -> void:
  day = 1
  elapsed_seconds = 0.0
  stage = 0
+ prepared = false
  job = ""
  progress = 0
  structures = {"2,2":true}
@@ -151,17 +155,26 @@ func _job(kind: String) -> void:
  if job != "":
   status.text = "Техника занята"
   return
- if kind == "sow":
-  if stage != 0 or cash < 100:
-   status.text = "Посев невозможен"
+ match kind:
+  "prepare":
+   if not ProductionRules.can_prepare(stage,prepared,job,cash):
+    status.text = "Подготовка поля недоступна"
+    return
+   cash -= ProductionRules.PREPARE_COST
+  "sow":
+   if not ProductionRules.can_sow(stage,prepared,job,cash):
+    status.text = "Сначала подготовьте поле"
+    return
+   cash -= ProductionRules.SOW_COST
+  "harvest":
+   if not ProductionRules.can_harvest(stage,job,grain,structures):
+    status.text = "Урожай не созрел или склад заполнен"
+    return
+  _:
    return
-  cash -= 100
- elif stage != 2:
-  status.text = "Урожай ещё не созрел"
-  return
  job = kind
  progress = 0.0
- status.text = "Техника отправлена"
+ status.text = "Техника отправлена: %s" % kind
 func _start_build(kind: String = "warehouse") -> void:
  if not BuildRules.CATALOG.has(kind):
   return
@@ -200,7 +213,7 @@ func _sell() -> void:
  if grain == 0:
   status.text = "Склад пуст"
   return
- cash += grain*450
+ cash += ProductionRules.sale_value(grain)
  grain = 0
  status.text = "Зерно продано"
 func _process(delta: float) -> void:
@@ -210,15 +223,20 @@ func _process(delta: float) -> void:
  day = GameClock.day_from_seconds(elapsed_seconds)
  if job != "":
   progress += delta/6.0
-  var machine := tractor if job == "sow" else harvester
+  var machine := harvester if job == "harvest" else tractor
   machine.position = Vector3(15+progress*10,0,12+progress*5)
   if progress >= 1.0:
-   if job == "sow":
+   if job == "prepare":
+    prepared = true
+    status.text = "Почва подготовлена"
+   elif job == "sow":
+    prepared = false
     stage = 1
     status.text = "Посев завершён"
    else:
     stage = 0
-    grain += 3
+    prepared = false
+    grain += ProductionRules.YIELD_TONS
     status.text = "Урожай на складе"
    job = ""
    progress = 0.0
@@ -230,7 +248,7 @@ func _process(delta: float) -> void:
    progress = 0.0
    status.text = "Пшеница созрела"
    _draw()
- game_ui.update_hud(day,cash,grain,stage,job,progress,build)
+ game_ui.update_hud(day,cash,grain,stage,job,progress,build,prepared,ProductionRules.capacity(structures))
 func _camera() -> void:
  camera_rig.apply(cam)
 func _screen_cell(position: Vector2) -> Vector2i:
@@ -295,7 +313,7 @@ func _build(cell: Vector2i) -> void:
  _draw()
  status.text = "Постройка завершена!"
 func _snapshot() -> Dictionary:
- return {"version":1,"cash":cash,"grain":grain,"stage":stage,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds}
+ return {"version":1,"cash":cash,"grain":grain,"stage":stage,"prepared":prepared,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds}
 func _save() -> void:
  if SaveStore.write(SAVE, _snapshot()):
   status.text = "Сохранено"
@@ -309,6 +327,7 @@ func _load() -> void:
  cash = int(data["cash"])
  grain = int(data["grain"])
  stage = int(data["stage"])
+ prepared = bool(data.get("prepared",false))
  structures = data["structures"].duplicate()
  _cancel_build()
  job = str(data["job"])

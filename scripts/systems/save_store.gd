@@ -11,7 +11,7 @@ static func validate(data: Variant) -> bool:
    return false
  if not data["structures"] is Dictionary:
   return false
- if not data["job"] is String or not data["job"] in ["", "sow", "harvest"]:
+ if not data["job"] is String or not data["job"] in ["", "prepare", "sow", "harvest"]:
   return false
  for key in ["cash", "grain", "stage", "day"]:
   if not (data[key] is int or data[key] is float):

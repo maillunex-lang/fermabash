@@ -7,8 +7,13 @@ func _test() -> void:
  await process_frame
  scene._new()
  assert(scene.cash == 2000)
+ scene._job("prepare")
+ assert(scene.cash == 1940)
+ for i in range(65):
+  scene._process(0.1)
+ assert(scene.prepared)
  scene._job("sow")
- assert(scene.cash == 1900)
+ assert(scene.cash == 1840)
  scene._job("harvest")
  assert(scene.job == "sow")
  for i in range(400):
@@ -19,14 +24,14 @@ func _test() -> void:
   scene._process(0.1)
  assert(scene.grain == 3)
  scene._sell()
- assert(scene.cash == 3250)
+ assert(scene.cash == 3190)
  scene._build(Vector2i(2,2))
- assert(scene.cash == 3250)
+ assert(scene.cash == 3190)
  scene._build(Vector2i(10,10))
- assert(scene.cash == 2350)
+ assert(scene.cash == 2290)
  scene._save()
  scene.cash = 0
  scene._load()
- assert(scene.cash == 2350)
+ assert(scene.cash == 2290)
  print("SMOKE_TEST_PASS")
  quit()
