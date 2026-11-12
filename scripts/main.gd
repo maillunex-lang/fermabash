@@ -480,7 +480,7 @@ func _process(delta: float) -> void:
    status.text = "Пшеница созрела"
    _draw()
  var displayed: Dictionary = _plot_state(selected_plot) if selected_plot != "" else {"stage":stage,"prepared":prepared}
- game_ui.update_hud(day,cash,grain,int(displayed["stage"]),job,progress,build,bool(displayed["prepared"]),ProductionRules.capacity(structures))
+ game_ui.update_hud(day,cash,grain,int(displayed["stage"]),job,progress,build,bool(displayed["prepared"]),ProductionRules.capacity(structures),selected_plot != "")
  if selected_plot != "":
   game_ui.task.text = "Поле %s: %s" % [selected_plot,["Подготовка" if not bool(displayed["prepared"]) else "Готово к посеву","Растёт","Созрело"][int(displayed["stage"])]]
 func _camera() -> void:
