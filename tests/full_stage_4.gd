@@ -31,16 +31,26 @@ func _test() -> void:
  assert(scene._develop(Vector2i(1,1)))
  assert(scene._develop(Vector2i(1,2)))
  assert(scene._plot_state("1,1") == scene._plot_state("1,2"))
+ assert(scene._group_cells("1,1").size() == 2)
+ scene._start_territory("field")
+ assert(scene._develop(Vector2i(1,3)))
+ assert(scene._group_cells("1,3").size() == 1)
+ assert(scene._group_of("1,1") != scene._group_of("1,3"))
  scene.selected_plot = "1,1"
  var original_cash: int = scene.cash
  scene._job("prepare")
- assert(scene.cash == original_cash-25)
+ assert(scene.cash == original_cash-50)
  assert(scene.active_plot == "1,1")
- for i in range(200):
+ scene.selected_plot = "1,3"
+ scene._plot_job("prepare")
+ assert(scene.field_tasks.size() == 1)
+ scene.selected_plot = "1,1"
+ for i in range(250):
   scene._process(0.2)
  assert(bool(scene._plot_state("1,1")["prepared"]))
  assert(scene.stage == 0)
- assert(not bool(scene._plot_state("1,2")["prepared"]))
+ assert(bool(scene._plot_state("1,2")["prepared"]))
+ assert(bool(scene._plot_state("1,3")["prepared"]))
  scene._job("sow")
  for i in range(200):
   scene._process(0.2)
@@ -51,9 +61,16 @@ func _test() -> void:
  scene._job("harvest")
  for i in range(200):
   scene._process(0.2)
- assert(scene.grain == 3)
+ assert(scene.grain == 6)
  assert(int(scene._plot_state("1,2")["stage"]) == 0)
+ assert(int(scene._plot_state("1,3")["stage"]) == 0)
+ assert(bool(scene._plot_state("1,3")["prepared"]))
  assert(int(scene._plot_state("1,1")["stage"]) == 0)
+ scene._request_field_action("sow")
+ assert(scene.pending_field_action == "sow")
+ scene._pick_cell(scene.cam.unproject_position(Vector3(4.5,0.0,10.5)))
+ assert(scene.pending_field_action == "")
+ assert(scene.active_plot == "1,3")
  scene._save()
  var expected: Dictionary = scene._snapshot()
  scene.field_plots.clear()
