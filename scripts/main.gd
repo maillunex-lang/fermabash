@@ -196,7 +196,14 @@ func _draw() -> void:
     color = {"dirt":Color("8c7252"),"gravel":Color("a4a6a0"),"asphalt":Color("424a4d")}[roads[Territory.key(cell)]]
    elif field_plots.has(Territory.key(cell)):
     var plot: Dictionary = _plot_state(Territory.key(cell))
-    color = Color("d8af48") if int(plot["stage"]) == 2 else (Color("63a548") if int(plot["stage"]) == 1 else (Color("b48655") if bool(plot["prepared"]) else Color("72512f"))
+    if int(plot["stage"]) == 2:
+     color = Color("d8af48")
+    elif int(plot["stage"]) == 1:
+     color = Color("63a548")
+    elif bool(plot["prepared"]):
+     color = Color("b48655")
+    else:
+     color = Color("72512f")
     if selected_plot == Territory.key(cell):
      color = color.lightened(0.35)
    elif z == 7 or z == 8:
