@@ -5,7 +5,15 @@ GODOT="${GODOT_BIN:-/opt/game-tools/godot/4.7.2-stable/Godot_v4.7.2-stable_linux
 export ANDROID_HOME="${ANDROID_HOME:-/opt/android-sdk}"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
 cd "$PROJECT"
-mkdir -p build
+mkdir -p build assets/vehicles
+# Pinned binary asset is hosted separately from the Git repository.
+TRACTOR_URL="https://rikagro.ru/agrogame/assets/tractor_mobile.glb"
+TRACTOR_SHA256="99bcc67624aff0d831315d1e93c4d61a03b9a1ad2a54caf463dc6cb01e139b16"
+if [[ ! -f assets/vehicles/tractor_mobile.glb ]] || ! echo "$TRACTOR_SHA256  assets/vehicles/tractor_mobile.glb" | sha256sum -c --status; then
+  curl --fail --location --retry 3 --silent --show-error "$TRACTOR_URL" -o assets/vehicles/tractor_mobile.glb.tmp
+  echo "$TRACTOR_SHA256  assets/vehicles/tractor_mobile.glb.tmp" | sha256sum -c
+  mv assets/vehicles/tractor_mobile.glb.tmp assets/vehicles/tractor_mobile.glb
+fi
 "$GODOT" --headless --path . --editor --quit
 "$GODOT" --headless --path . --script res://tests/smoke.gd
 "$GODOT" --headless --path . --script res://tests/systems.gd
