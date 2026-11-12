@@ -343,6 +343,7 @@ func _develop(cell: Vector2i) -> bool:
   return false
  status.text = "Участок %d, %d готов" % [cell.x,cell.y]
  _draw()
+ _save()
  return true
 
 func _plot_state(key: String) -> Dictionary:
@@ -350,6 +351,19 @@ func _plot_state(key: String) -> Dictionary:
  if not PlotProduction.valid(value):
   return PlotProduction.initial()
  return {"stage":int(value["stage"]),"prepared":bool(value["prepared"]),"growth":float(value["growth"])}
+
+func _building_obstacles() -> Dictionary:
+ var blocked: Dictionary = {}
+ for key in structures:
+  var p: PackedStringArray = str(key).split(",")
+  if p.size() != 2:
+   continue
+  var origin := Vector2i(int(p[0]),int(p[1]))
+  var size: int = BuildRules.size_of(structures[key])
+  for x in range(origin.x,origin.x+size):
+   for y in range(origin.y,origin.y+size):
+    blocked[Territory.key(Vector2i(x,y))] = true
+ return blocked
 
 func _plot_job(kind: String) -> void:
  if job != "":
@@ -365,7 +379,7 @@ func _plot_job(kind: String) -> void:
   return
  var parts: PackedStringArray = selected_plot.split(",")
  var target := Vector2i(int(parts[0]),int(parts[1]))
- var route: Array[Vector2i] = RoadRouter.find_route(Vector2i(0,8),target,extra_land,roads)
+ var route: Array[Vector2i] = RoadRouter.find_route(Vector2i(0,8),target,extra_land,roads,_building_obstacles())
  if route.is_empty():
   status.text = "К полю нет доступного маршрута"
   return
@@ -442,8 +456,6 @@ func _process(delta: float) -> void:
  elapsed_seconds += delta
  if job != "" and active_plot != "" and not travel_route.is_empty():
   _travel(delta)
- else:
-  _road_patrol(delta)
  day = GameClock.day_from_seconds(elapsed_seconds)
  for plot_key in field_plots.keys():
   var current: Dictionary = _plot_state(str(plot_key))
@@ -452,6 +464,7 @@ func _process(delta: float) -> void:
    field_plots[plot_key] = grown
    if int(grown["stage"]) == 2:
     _draw()
+    _save()
  if job != "" and not (active_plot != "" and not travel_route.is_empty()):
   progress += delta/6.0
   progress = minf(progress,1.0)
@@ -480,6 +493,7 @@ func _process(delta: float) -> void:
    job = ""
    progress = 0.0
    _draw()
+   _save()
  elif stage == 1:
   progress += delta/10.0
   _update_field_visuals()
@@ -573,6 +587,7 @@ func _build(cell: Vector2i) -> void:
  structures["%d,%d" % [cell.x,cell.y]] = build_kind
  _cancel_build()
  _draw()
+ _save()
  status.text = "Постройка завершена!"
 func _route_save() -> Array:
  var result: Array = []
