@@ -23,7 +23,7 @@ static func find_route(start: Vector2i, target: Vector2i, extra: Dictionary, roa
     route.push_front(current)
    return route
   for direction in DIRECTIONS:
-   var next := current+direction
+   var next: Vector2i = current+direction
    if not Territory.owned(next,extra):
     continue
    var road: String = str(roads.get(Territory.key(next),""))
