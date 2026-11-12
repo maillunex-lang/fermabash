@@ -107,7 +107,7 @@ func _make_hud() -> void:
  var tabs := HBoxContainer.new()
  tabs.add_theme_constant_override("separation",8)
  outer.add_child(tabs)
- for entry in [["🌱 Поля","field"],["🏗 Строительство","construction"]]:
+ for entry in [["🌱 Поля","field"],["🏗 Строительство","construction"],["🗺 Земля и дороги","territory"]]:
   var tab := _button(tabs,entry[0],"tab_"+entry[1])
   tab_buttons[entry[1]] = tab
  var flow := GridContainer.new()
@@ -118,7 +118,7 @@ func _make_hud() -> void:
  for entry in [
   ["Подготовить","prepare"],["Посев","sow"],["Уборка","harvest"],["Продать","sell"],
   ["Навес 1×1","build_shed"],["Склад 2×2","build"],["Мастерская 3×3","build_workshop"],
-  ["Агрокомплекс 4×4","build_complex"],["Отмена","cancel_build"],["Сохранить","save"],["Карта","region_map"],["Меню","menu"]
+  ["Агрокомплекс 4×4","build_complex"],["Купить землю 100 ₽","buy_land"],["Поле 80 ₽","place_field"],["Грунт 40 ₽","road_dirt"],["Щебень 100 ₽","road_gravel"],["Асфальт 250 ₽","road_asphalt"],["Отмена","cancel_build"],["Сохранить","save"],["Карта","region_map"],["Меню","menu"]
  ]:
   action_buttons[entry[1]] = _button(flow,entry[0],entry[1])
  show_tab("field")
@@ -296,7 +296,8 @@ func _layout() -> void:
  for button in action_buttons.values():
   button.custom_minimum_size = Vector2(button_width,74)
  for button in tab_buttons.values():
-  button.custom_minimum_size = Vector2((width-54.0)/2.0,70)
+  button.custom_minimum_size = Vector2((width-66.0)/3.0,70)
+  button.add_theme_font_size_override("font_size",19)
  actions_panel.size = Vector2(width,0)
  actions_panel.position = Vector2(margin,viewport.y-actions_panel.get_combined_minimum_size().y-margin)
  title_label.add_theme_font_size_override("font_size",32)
@@ -322,13 +323,17 @@ func update_hud(day: int, cash: int, grain: int, stage: int, job: String, progre
  action_buttons["build_shed"].disabled = cash < 250
  action_buttons["build_workshop"].disabled = cash < 1600
  action_buttons["build_complex"].disabled = cash < 3000
- action_buttons["cancel_build"].disabled = not building
+ action_buttons["cancel_build"].disabled = false
 
 func show_tab(tab: String) -> void:
  active_tab = tab
  for action in action_buttons:
-  var construction: bool = str(action).begins_with("build") or action == "cancel_build"
-  action_buttons[action].visible = construction if tab == "construction" else not construction
+  var construction: bool = str(action).begins_with("build")
+  var territory: bool = action in ["buy_land","place_field","road_dirt","road_gravel","road_asphalt"]
+  var visible_action: bool = territory if tab == "territory" else (construction if tab == "construction" else not construction)
+  if action == "cancel_build":
+   visible_action = tab != "field"
+  action_buttons[action].visible = visible_action
  call_deferred("_layout")
  for key in tab_buttons:
   tab_buttons[key].disabled = key == tab

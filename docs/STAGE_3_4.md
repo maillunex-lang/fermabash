@@ -1,0 +1,7 @@
+# Stage 3.4: purchasable land and first road/field placement
+
+This first implementation expands the original 16×16 playable grid toward a maximum 24×24 through **adjacent individual cell purchases**, priced at 100 in-game rubles per cell. No real payments. The new **Земля и дороги** tab provides a field plot at 80 ₽ per cell and dirt/gravel/asphalt roads at 40/100/250 ₽ per cell. Existing structures, starter cultivated field and built-in central road cannot be overwritten. Land, field and road ownership are persisted in optional fields in version-1 saves so older saves remain readable. Camera panning now reaches the extended area.
+
+Adjacent built road cells enable an idle tractor demonstration patrol. Speed multipliers are ×1.2 (dirt), ×1.5 (gravel) and ×2 (asphalt). **Important scope limit:** this is the first road movement prototype, not a general shortest-path logistics network; the original six-pass agricultural job route remains unchanged. New field plots are placeable visible land-use tiles, but their independent crop cycles and yields are not yet wired to the production system. Those must be implemented in a follow-up stage before describing the feature as full multi-field agriculture.
+
+Beta city cap remains 10, actual city count 8. Do not modify other VPS services. Tests cover adjacency, purchases, collisions, road speed, saves, Android UI, and existing farm regression.
