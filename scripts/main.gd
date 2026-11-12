@@ -293,6 +293,7 @@ func _start_build(kind: String = "warehouse") -> void:
  var item: Dictionary = BuildRules.definition(kind)
  status.text = "%s %d×%d: %d ₽. Выберите клетку" % [item["title"],item["size"],item["size"],item["cost"]]
 func _cancel_build() -> void:
+ pending_field_action = ""
  build = false
  territory_mode = ""
  preview_cell = Vector2i(-1,-1)
@@ -320,6 +321,7 @@ func _update_preview(position: Vector2) -> void:
  preview.visible = true
 func _start_territory(kind: String) -> void:
  _cancel_build()
+ pending_field_action = ""
  territory_mode = kind
  if kind == "field":
   field_group_id = next_field_group_id
@@ -597,8 +599,12 @@ func _pick_cell(position: Vector2) -> void:
   var k := Territory.key(cell)
   selected_plot = k if field_plots.has(k) else ""
   if pending_field_action != "":
-   if selected_plot == "":
-    status.text = "Выберите созданное поле"
+   if selected_plot == "" and cell.x >= 5 and cell.x <= 8 and cell.y >= 3 and cell.y <= 6:
+    var requested: String = pending_field_action
+    pending_field_action = ""
+    _job(requested)
+   elif selected_plot == "":
+    status.text = "Выберите поле, а не пустую землю"
    else:
     _plot_job(pending_field_action)
   else:
@@ -722,7 +728,6 @@ func _load() -> void:
   extra_land.clear()
   field_plots.clear()
   roads.clear()
-  field_plots.clear()
   selected_plot = ""
   active_plot = ""
   travel_route.clear()
