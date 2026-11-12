@@ -8,7 +8,7 @@ static func material(color: Color, roughness := 0.84) -> StandardMaterial3D:
  mat.albedo_color = color
  mat.roughness = roughness
  mat.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
- mat.metallic_specular = 0.18
+ mat.metallic_specular = 0.06
  return mat
 static func wheat_material(color: Color) -> ShaderMaterial:
  var mat := ShaderMaterial.new()
