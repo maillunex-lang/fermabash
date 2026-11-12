@@ -49,7 +49,7 @@ func _ready() -> void:
  _button(actions,"Посев",func(): _job("sow"))
  _button(actions,"Уборка",func(): _job("harvest"))
  _button(actions,"Продать",_sell)
- _button(actions,"Склад 2×2",func(): build = true; status.text = "Выберите свободную клетку")
+ _button(actions,"Склад 2×2",_start_build)
  _button(actions,"Сохранить",_save)
  _button(actions,"Меню",_menu)
  _draw()
@@ -72,9 +72,15 @@ func _menu() -> void:
  title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
  box.add_child(title)
  _button(box,"Новая игра",func(): _new())
- _button(box,"Продолжить",func(): _load(); _close())
+ _button(box,"Продолжить",_continue)
  _button(box,"Настройки",func(): status.text = "Звук: выключен")
  _button(box,"Выход",func(): get_tree().quit())
+func _continue() -> void:
+ if FileAccess.file_exists(SAVE):
+  _load()
+  _close()
+ else:
+  _new()
 func _close() -> void:
  menu.queue_free()
  running = true
@@ -143,6 +149,9 @@ func _job(kind: String) -> void:
  job = kind
  progress = 0.0
  status.text = "Техника отправлена"
+func _start_build() -> void:
+ build = true
+ status.text = "Выберите свободную клетку"
 func _sell() -> void:
  if grain == 0:
   status.text = "Склад пуст"
@@ -153,7 +162,6 @@ func _sell() -> void:
 func _process(delta: float) -> void:
  if not running:
   return
- day += 0 if delta <= 0 else 0
  if job != "":
   progress += delta/6.0
   var machine := tractor if job == "sow" else harvester
@@ -240,7 +248,7 @@ func _save() -> void:
  status.text = "Сохранено"
 func _load() -> void:
  if not FileAccess.file_exists(SAVE):
-  _new()
+  status.text = "Нет сохранения, начните новую игру"
   return
  var f := FileAccess.open(SAVE,FileAccess.READ)
  if f == null:
