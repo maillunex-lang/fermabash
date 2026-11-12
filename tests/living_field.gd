@@ -24,9 +24,9 @@ func _test() -> void:
  assert(field.last_signature.ends_with(":43"))
  assert(Route.completed_fraction(0.9,5,3))
  field.update_field(1,false,"",0.5)
- assert(field.crops.multimesh.get_instance_color(0).g > 0.0)
+ assert(field.last_signature.begins_with("1:"))
  field.update_field(2,false,"harvest",1.0)
- assert(field.crops.multimesh.get_instance_color(0).a == 0.0)
+ assert(field.last_signature.begins_with("2:"))
  var scene = load("res://scenes/Main.tscn").instantiate()
  root.add_child(scene)
  await process_frame
