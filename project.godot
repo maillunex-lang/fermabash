@@ -1,6 +1,7 @@
 config_version=5
 [application]
 config/name="Agro Empire Online"
+config/icon="res://assets/icon.svg"
 run/main_scene="res://scenes/Main.tscn"
 [rendering]
 renderer/rendering_method="gl_compatibility"
