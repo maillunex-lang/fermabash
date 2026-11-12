@@ -71,7 +71,18 @@ func _ready() -> void:
  _draw()
  _menu()
 func _ui_action(action: String) -> void:
+ if action.begins_with("region_district:"):
+  game_ui.show_district(action.trim_prefix("region_district:"))
+  return
+ if action.begins_with("region_settlement:"):
+  var parts := action.split(":")
+  if parts.size() == 3:
+   game_ui.show_settlement(parts[1],parts[2])
+  return
  match action:
+  "region_map": game_ui.show_regions()
+  "region_close": game_ui.hide_regions()
+  "region_back": game_ui.show_regions()
   "tab_field": game_ui.show_tab("field")
   "tab_construction": game_ui.show_tab("construction")
   "prepare": _job("prepare")
@@ -91,6 +102,7 @@ func _ui_action(action: String) -> void:
   "quit": get_tree().quit()
 func _menu() -> void:
  running = false
+ game_ui.hide_regions()
  game_ui.show_menu()
 func _continue() -> void:
  if FileAccess.file_exists(SAVE):
