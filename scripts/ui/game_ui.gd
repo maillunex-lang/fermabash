@@ -1,7 +1,5 @@
 extends CanvasLayer
-const RegionCatalog = preload("res://scripts/systems/region_catalog.gd")
-const BetaCityCatalog = preload("res://scripts/systems/beta_city_catalog.gd")
-const BetaCityMap = preload("res://scripts/ui/beta_city_map.gd")
+const FarmRegistry = preload("res://scripts/systems/farm_registry.gd")
 ## Russian-language adaptive HUD and menu. All game actions are emitted as signals.
 signal action_requested(action: String)
 var stats: Label
@@ -171,76 +169,9 @@ func _make_region_menu() -> void:
  _button(region_list,"← Вернуться к хозяйству","region_close")
  region_overlay.visible = false
 
-func show_regions() -> void:
+func show_regions(profile: Dictionary = {}) -> void:
  region_overlay.visible = true
- region_selected = ""
- show_beta_map()
-
-func show_beta_map() -> void:
- _clear_region_choices()
- region_title.text = "БАШКОРТОСТАН · 8 ГОРОДОВ"
- region_list.add_child(_label("Бета-карта: центры городов показаны приблизительно.",17,MUTED))
- var content := HBoxContainer.new()
- content.add_theme_constant_override("separation",12)
- region_list.add_child(content)
- city_map = BetaCityMap.new()
- city_map.custom_minimum_size = Vector2(390,290)
- city_map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
- content.add_child(city_map)
- city_scroll = ScrollContainer.new()
- city_scroll.custom_minimum_size = Vector2(225,290)
- city_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
- city_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
- content.add_child(city_scroll)
- var city_list := VBoxContainer.new()
- city_list.add_theme_constant_override("separation",6)
- city_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
- city_scroll.add_child(city_list)
- city_buttons.clear()
- for entry in BetaCityCatalog.CITIES:
-  var id: String = str(entry["id"])
-  var button := Button.new()
-  button.text = str(entry["name"])
-  button.custom_minimum_size = Vector2(175,56)
-  button.add_theme_font_size_override("font_size",19)
-  button.add_theme_stylebox_override("normal",_style(Color("29554a")))
-  button.add_theme_stylebox_override("pressed",_style(Color("b88533")))
-  button.pressed.connect(func(): city_map._select(id))
-  city_list.add_child(button)
-  city_buttons[id] = button
- city_details = _label("Выберите город на карте или в списке",19,ACCENT)
- region_list.add_child(city_details)
- city_map.city_selected.connect(_city_selected)
- var navigation := HBoxContainer.new()
- navigation.add_theme_constant_override("separation",8)
- region_list.add_child(navigation)
- var district_button := _button(navigation,"Районы","region_district_list")
- var close_button := _button(navigation,"← К ферме","region_close")
- for button in [district_button,close_button]:
-  button.custom_minimum_size = Vector2(220,58)
-  button.add_theme_font_size_override("font_size",20)
- _layout_regions()
-
-func _layout_regions() -> void:
- if city_map == null or not is_instance_valid(city_map):
-  return
- var viewport := get_viewport().get_visible_rect().size
- var compact := viewport.x < 800.0
- region_panel.custom_minimum_size = Vector2(minf(viewport.x-32.0,780.0),0)
- city_map.custom_minimum_size = Vector2(maxf(250.0,minf(viewport.x*0.53,430.0)),clampf(viewport.y-260.0,190.0,330.0))
- city_scroll.custom_minimum_size = Vector2(160,city_map.custom_minimum_size.y)
- if compact:
-  city_map.custom_minimum_size.x = maxf(210.0,viewport.x*0.48)
-  city_scroll.custom_minimum_size.x = 145
-
-func _city_selected(city_id: String) -> void:
- var item: Dictionary = BetaCityCatalog.city(city_id)
- if item.is_empty():
-  return
- city_details.text = str(item["name"]) + " · центр города (ориентировочно)"
- for key in city_buttons:
-  (city_buttons[key] as Button).disabled = key == city_id
- action_requested.emit("region_city:"+city_id)
+ _populate_regions(profile)
 
 func hide_regions() -> void:
  region_overlay.visible = false
@@ -254,34 +185,49 @@ func _clear_region_choices() -> void:
   if child != region_title:
    child.queue_free()
 
-func _populate_regions() -> void:
+func _populate_regions(profile: Dictionary = {}) -> void:
  _clear_region_choices()
  region_title.text = "БАШКОРТОСТАН · РАЙОНЫ"
- var hint := _label("Навигационный прототип. Геометрия и другие хозяйства появятся позже.",18,MUTED)
- region_list.add_child(hint)
- for item in RegionCatalog.DISTRICTS:
-  _button(region_list,str(item["name"]),"region_district:"+str(item["id"]))
- _button(region_list,"← Вернуться к хозяйству","region_close")
+ region_list.add_child(_label("Бета: районы и локальная ферма. Общая карта игроков появится с сервером.",18,MUTED))
+ for district in FarmRegistry.DISTRICTS:
+  var id: String = str(district["id"])
+  _button(region_list,str(district["name"]),"region_district:"+id)
+ if FarmRegistry.validate(profile):
+  region_list.add_child(_label("Ваша ферма: "+str(profile["name"]),21,ACCENT))
+ _button(region_list,"← К хозяйству","region_close")
 
-func show_district(id: String) -> void:
- var district := RegionCatalog.district(id)
+func show_district(id: String, profile: Dictionary = {}) -> void:
+ var district: Dictionary = FarmRegistry.district(id)
  if district.is_empty():
   return
  region_selected = id
  _clear_region_choices()
  region_title.text = str(district["name"]).to_upper()
- for place in district["settlements"]:
-  _button(region_list,str(place["name"]),"region_settlement:"+id+":"+str(place["id"]))
+ region_list.add_child(_label("Схематичная сетка района, без реальных кадастровых границ.",17,MUTED))
+ var grid := GridContainer.new()
+ grid.columns = FarmRegistry.GRID
+ grid.add_theme_constant_override("h_separation",2)
+ grid.add_theme_constant_override("v_separation",2)
+ region_list.add_child(grid)
+ var has_farm: bool = FarmRegistry.validate(profile) and profile["district_id"] == id
+ for y in range(FarmRegistry.GRID):
+  for x in range(FarmRegistry.GRID):
+   var tile := Button.new()
+   tile.custom_minimum_size = Vector2(44,34)
+   var occupied := has_farm and x >= int(profile["plot_x"]) and x < int(profile["plot_x"])+2 and y >= int(profile["plot_y"]) and y < int(profile["plot_y"])+2
+   tile.text = "Ф" if occupied else "·"
+   tile.disabled = true
+   grid.add_child(tile)
+ if has_farm:
+  region_list.add_child(_label("Ваша ферма: "+str(profile["name"]),20,ACCENT))
+ else:
+  region_list.add_child(_label("Онлайн-фермы пока недоступны: сервер не подключён.",17,MUTED))
  _button(region_list,"← К районам","region_back")
+ _button(region_list,"← К хозяйству","region_close")
 
-func show_settlement(district_id: String, settlement_id: String) -> void:
- if RegionCatalog.settlement(district_id,settlement_id).is_empty():
-  return
- _clear_region_choices()
- region_title.text = RegionCatalog.label(district_id,settlement_id)
- region_list.add_child(_label("Территория: демонстрационный раздел.\nВаша текущая ферма остаётся без изменений.",19,MUTED))
- _button(region_list,"← К населённым пунктам","region_district:"+district_id)
- _button(region_list,"Вернуться к ферме","region_close")
+func _layout_regions() -> void:
+ var viewport := get_viewport().get_visible_rect().size
+ region_panel.custom_minimum_size = Vector2(minf(viewport.x-32.0,780.0),0)
 
 func _layout() -> void:
  var viewport := get_viewport().get_visible_rect().size
