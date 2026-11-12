@@ -32,6 +32,8 @@ static func validate(data: Variant) -> bool:
   return false
  if not data["name"] is String or not data["district_id"] is String:
   return false
- if not data["plot_x"] is int or not data["plot_y"] is int:
+ if not (data["plot_x"] is int or data["plot_x"] is float) or not (data["plot_y"] is int or data["plot_y"] is float):
   return false
- return not create(data["name"],data["district_id"],Vector2i(data["plot_x"],data["plot_y"])).is_empty()
+ if float(data["plot_x"]) != float(int(data["plot_x"])) or float(data["plot_y"]) != float(int(data["plot_y"])):
+  return false
+ return not create(data["name"],data["district_id"],Vector2i(int(data["plot_x"]),int(data["plot_y"]))).is_empty()
