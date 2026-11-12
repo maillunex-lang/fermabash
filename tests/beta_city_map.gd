@@ -30,6 +30,7 @@ func _test() -> void:
  scene._save()
  scene.farm_profile.clear()
  scene._load()
+ print("PROFILE_EXPECTED:",profile," PROFILE_ACTUAL:",scene.farm_profile," RAW:",scene._snapshot()["farm_profile"])
  assert(scene.farm_profile == profile)
  print("FARM_ONBOARDING_TEST_PASS")
  quit()
