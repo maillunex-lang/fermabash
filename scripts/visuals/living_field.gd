@@ -61,7 +61,7 @@ func update_field(stage: int, prepared: bool, job: String, progress: float) -> v
     visible_crop = false
    for row in range(4):
     for col in range(5):
-     var height := 0.08
+     var height := 0.001
      var crop_color := Color("62a64c")
      if visible_crop:
       height = 0.24 if job == "sow" else (0.55 + 0.3*progress if stage == 1 else 1.05)
