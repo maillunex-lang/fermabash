@@ -7,7 +7,7 @@ func _test() -> void:
  await process_frame
  assert(scene.game_ui != null)
  assert(scene.game_ui.menu_overlay.visible)
- assert(scene.game_ui.action_buttons.size() == 11)
+ assert(scene.game_ui.action_buttons.size() == 12)
  assert(scene.game_ui.menu_buttons.size() == 4)
  scene.game_ui.action_requested.emit("new")
  assert(scene.running)
