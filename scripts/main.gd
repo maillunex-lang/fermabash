@@ -319,10 +319,37 @@ func _sell() -> void:
  cash += ProductionRules.sale_value(grain)
  grain = 0
  status.text = "Зерно продано"
+func _road_patrol(delta: float) -> void:
+ if job != "" or tractor == null or roads.size() < 2:
+  return
+ var keys: Array = roads.keys()
+ keys.sort()
+ var points: Array[Vector2i] = []
+ for key in keys:
+  var parts: PackedStringArray = str(key).split(",")
+  points.append(Vector2i(int(parts[0]),int(parts[1])))
+ var links: Array[Vector2i] = []
+ for cell in points:
+  for direction in [Vector2i(1,0),Vector2i(0,1)]:
+   if roads.has(Territory.key(cell+direction)):
+    links.append(cell)
+    links.append(cell+direction)
+ if links.is_empty():
+  return
+ var segment: int = int(floor(road_vehicle_progress)) % int(links.size()/2)
+ var from: Vector2i = links[segment*2]
+ var to: Vector2i = links[segment*2+1]
+ var speed: float = _road_speed_at(from)
+ road_vehicle_progress = fposmod(road_vehicle_progress+delta*speed*0.45,float(links.size()/2))
+ var fraction := road_vehicle_progress-floor(road_vehicle_progress)
+ tractor.position = Vector3((lerpf(float(from.x),float(to.x),fraction)+0.5)*CELL,0,(lerpf(float(from.y),float(to.y),fraction)+0.5)*CELL)
+ tractor.rotation.y = atan2(float(to.x-from.x),float(to.y-from.y))
+
 func _process(delta: float) -> void:
  if not running:
   return
  elapsed_seconds += delta
+ _road_patrol(delta)
  day = GameClock.day_from_seconds(elapsed_seconds)
  if job != "":
   progress += delta/6.0
