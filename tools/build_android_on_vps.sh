@@ -14,6 +14,7 @@ mkdir -p build
 "$GODOT" --headless --path . --script res://tests/construction.gd
 "$GODOT" --headless --path . --script res://tests/production.gd
 "$GODOT" --headless --path . --script res://tests/living_field.gd
+"$GODOT" --headless --path . --script res://tests/android_controls.gd
 "$GODOT" --headless --path . --export-debug Android build/AgroEmpireOnline-debug.apk
 "$ANDROID_HOME/build-tools/36.1.0/apksigner" verify --verbose build/AgroEmpireOnline-debug.apk
 sha256sum build/AgroEmpireOnline-debug.apk
