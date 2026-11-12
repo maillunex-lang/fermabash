@@ -29,11 +29,11 @@ static func occupied(cell: Vector2i, structures: Dictionary, fields: Dictionary,
    return true
   var origin := Vector2i(int(parts[0]),int(parts[1]))
   var size: int = 2
-  if structures[position] == "shed":
+  if structures[position] is String and structures[position] == "shed":
    size = 1
-  elif structures[position] == "workshop":
+  elif structures[position] is String and structures[position] == "workshop":
    size = 3
-  elif structures[position] == "complex":
+  elif structures[position] is String and structures[position] == "complex":
    size = 4
   if cell.x >= origin.x and cell.y >= origin.y and cell.x < origin.x+size and cell.y < origin.y+size:
    return true
