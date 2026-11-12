@@ -9,7 +9,7 @@ const CAPACITY_PER_WAREHOUSE := 6
 static func capacity(structures: Dictionary) -> int:
  var count := 0
  for value in structures.values():
-  if value == true or value == "warehouse":
+  if (value is bool and value) or (value is String and value == "warehouse"):
    count += 1
  return count * CAPACITY_PER_WAREHOUSE
 
