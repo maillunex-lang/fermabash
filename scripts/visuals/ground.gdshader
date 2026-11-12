@@ -28,6 +28,6 @@ void fragment() {
 	vec3 albedo = tint * (0.86 + grain * 0.18 + detail * 0.08);
 	ALBEDO = albedo;
 	float wet = smoothstep(0.25, 0.55, tint.r) * (1.0 - tint.g * 0.7);
-	ROUGHNESS = mix(0.88, 0.35, clamp(wet, 0.0, 1.0));
-	SPECULAR = mix(0.05, 0.35, clamp(wet, 0.0, 1.0));
+	ROUGHNESS = mix(0.98, 0.92, clamp(wet, 0.0, 1.0));
+	SPECULAR = 0.02;
 }
