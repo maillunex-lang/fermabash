@@ -1,0 +1,5 @@
+# Stage 3.2: Android beta city map
+
+Beta scope is **eight cities, hard cap ten**: Уфа, Стерлитамак, Салават, Ишимбай, Нефтекамск, Октябрьский, Бирск, Белорецк. The catalog stores approximate city-center latitude/longitude and normalized positions on a lightweight schematic map. Touch-friendly pins are spaced to avoid overlap and linked visually to their geographic position. The UI explicitly labels the map as approximate. No official administrative boundaries, roads, real street geometry, terrain, satellite tiles, ownership, multiple farm worlds or geospatial accuracy claims. Avoid misrepresenting this as a verified geographic map.
+
+The map is opened from the existing **Карта** action; legacy district/settlement navigation remains available. Selecting a city shows its name and does not change game world, farm save or building rules. Android is the only release target. The catalog validates uniqueness and count <= 10; tests check bounds, navigation, selection and unchanged save. Later map work should ingest authoritative licensed geography, optimize for Android and respect the beta cap until changed by user.
