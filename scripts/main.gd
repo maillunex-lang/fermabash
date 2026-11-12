@@ -74,10 +74,6 @@ func _ui_action(action: String) -> void:
  match action:
   "tab_field": game_ui.show_tab("field")
   "tab_construction": game_ui.show_tab("construction")
-  "camera_left": camera_rig.angle -= 0.22; _camera()
-  "camera_right": camera_rig.angle += 0.22; _camera()
-  "camera_in": camera_rig.zoom -= 4.0; _camera()
-  "camera_out": camera_rig.zoom += 4.0; _camera()
   "prepare": _job("prepare")
   "sow": _job("sow")
   "harvest": _job("harvest")
