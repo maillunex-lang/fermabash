@@ -23,3 +23,4 @@ jobs:
           godot --headless --path . --script res://tests/systems.gd
           godot --headless --path . --script res://tests/world_camera.gd
           godot --headless --path . --script res://tests/ui.gd
+          godot --headless --path . --script res://tests/construction.gd
