@@ -25,3 +25,4 @@ jobs:
           godot --headless --path . --script res://tests/ui.gd
           godot --headless --path . --script res://tests/construction.gd
           godot --headless --path . --script res://tests/production.gd
+          godot --headless --path . --script res://tests/living_field.gd
