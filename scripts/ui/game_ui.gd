@@ -143,7 +143,7 @@ func set_status(value: String) -> void:
  message.text = value
 func update_hud(day: int, cash: int, grain: int, stage: int, job: String, progress: float, building: bool) -> void:
  stats.text = "День %d     %d ₽     Зерно: %d т" % [day,cash,grain]
- var stage_name := ["Поле свободно","Посевы растут","Урожай созрел"][clampi(stage,0,2)]
+ var stage_name: String = ["Поле свободно","Посевы растут","Урожай созрел"][clampi(stage,0,2)]
  task.text = ("Строительство: выберите клетку" if building else ("Работа: "+("посев" if job == "sow" else "уборка") if job != "" else stage_name))
  progress_bar.value = clampf(progress*100.0,0.0,100.0)
  action_buttons["sow"].disabled = job != "" or stage != 0 or cash < 100
