@@ -341,7 +341,7 @@ func _road_patrol(delta: float) -> void:
  var to: Vector2i = links[segment*2+1]
  var speed: float = _road_speed_at(from)
  road_vehicle_progress = fposmod(road_vehicle_progress+delta*speed*0.45,float(links.size()/2))
- var fraction := road_vehicle_progress-floor(road_vehicle_progress)
+ var fraction: float = road_vehicle_progress-floorf(road_vehicle_progress)
  tractor.position = Vector3((lerpf(float(from.x),float(to.x),fraction)+0.5)*CELL,0,(lerpf(float(from.y),float(to.y),fraction)+0.5)*CELL)
  tractor.rotation.y = atan2(float(to.x-from.x),float(to.y-from.y))
 
