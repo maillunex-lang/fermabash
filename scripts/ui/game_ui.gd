@@ -181,7 +181,7 @@ func update_hud(day: int, cash: int, grain: int, stage: int, job: String, progre
 func show_tab(tab: String) -> void:
  active_tab = tab
  for action in action_buttons:
-  var construction := action.begins_with("build") or action == "cancel_build"
+  var construction: bool = str(action).begins_with("build") or action == "cancel_build"
   action_buttons[action].visible = construction if tab == "construction" else not construction
  for key in tab_buttons:
   tab_buttons[key].disabled = key == tab
