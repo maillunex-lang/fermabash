@@ -347,7 +347,9 @@ func _develop(cell: Vector2i) -> bool:
 
 func _plot_state(key: String) -> Dictionary:
  var value: Variant = field_plots.get(key,PlotProduction.initial())
- return value if PlotProduction.valid(value) else PlotProduction.initial()
+ if not PlotProduction.valid(value):
+  return PlotProduction.initial()
+ return {"stage":int(value["stage"]),"prepared":bool(value["prepared"]),"growth":float(value["growth"])}
 
 func _plot_job(kind: String) -> void:
  if job != "":
