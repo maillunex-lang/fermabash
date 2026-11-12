@@ -1,4 +1,5 @@
 extends CanvasLayer
+const RegionCatalog = preload("res://scripts/systems/region_catalog.gd")
 ## Russian-language adaptive HUD and menu. All game actions are emitted as signals.
 signal action_requested(action: String)
 var stats: Label
@@ -13,6 +14,11 @@ var actions_panel: PanelContainer
 var title_label: Label
 var main_root: Control
 var active_tab := "field"
+var region_overlay: ColorRect
+var region_panel: PanelContainer
+var region_list: VBoxContainer
+var region_title: Label
+var region_selected := ""
 var tab_buttons: Dictionary = {}
 
 
@@ -30,6 +36,7 @@ func _ready() -> void:
  add_child(main_root)
  _make_hud()
  _make_menu()
+ _make_region_menu()
  get_viewport().size_changed.connect(_layout)
  _layout()
 
@@ -105,7 +112,7 @@ func _make_hud() -> void:
  for entry in [
   ["Подготовить","prepare"],["Посев","sow"],["Уборка","harvest"],["Продать","sell"],
   ["Навес 1×1","build_shed"],["Склад 2×2","build"],["Мастерская 3×3","build_workshop"],
-  ["Агрокомплекс 4×4","build_complex"],["Отмена","cancel_build"],["Сохранить","save"],["Меню","menu"]
+  ["Агрокомплекс 4×4","build_complex"],["Отмена","cancel_build"],["Сохранить","save"],["Карта","region_map"],["Меню","menu"]
  ]:
   action_buttons[entry[1]] = _button(flow,entry[0],entry[1])
  show_tab("field")
@@ -138,6 +145,68 @@ func _make_menu() -> void:
  ]:
   menu_buttons[entry[1]] = _button(box,entry[0],entry[1],entry[1] == "new")
 
+func _make_region_menu() -> void:
+ region_overlay = ColorRect.new()
+ region_overlay.color = Color("0a201d",0.94)
+ region_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+ region_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+ main_root.add_child(region_overlay)
+ var center := CenterContainer.new()
+ center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+ region_overlay.add_child(center)
+ region_panel = PanelContainer.new()
+ region_panel.add_theme_stylebox_override("panel",_style(Color("1b3b34")))
+ center.add_child(region_panel)
+ region_list = VBoxContainer.new()
+ region_list.add_theme_constant_override("separation",10)
+ region_panel.add_child(region_list)
+ region_title = _label("БАШКОРТОСТАН · РАЙОНЫ",28,ACCENT)
+ region_list.add_child(region_title)
+ _button(region_list,"← Вернуться к хозяйству","region_close")
+ region_overlay.visible = false
+
+func show_regions() -> void:
+ region_overlay.visible = true
+ region_selected = ""
+ _populate_regions()
+
+func hide_regions() -> void:
+ region_overlay.visible = false
+
+func _clear_region_choices() -> void:
+ for child in region_list.get_children():
+  if child != region_title:
+   child.queue_free()
+
+func _populate_regions() -> void:
+ _clear_region_choices()
+ region_title.text = "БАШКОРТОСТАН · РАЙОНЫ"
+ var hint := _label("Навигационный прототип. Геометрия и другие хозяйства появятся позже.",18,MUTED)
+ region_list.add_child(hint)
+ for item in RegionCatalog.DISTRICTS:
+  _button(region_list,str(item["name"]),"region_district:"+str(item["id"]))
+ _button(region_list,"← Вернуться к хозяйству","region_close")
+
+func show_district(id: String) -> void:
+ var district := RegionCatalog.district(id)
+ if district.is_empty():
+  return
+ region_selected = id
+ _clear_region_choices()
+ region_title.text = str(district["name"]).to_upper()
+ for place in district["settlements"]:
+  _button(region_list,str(place["name"]),"region_settlement:"+id+":"+str(place["id"]))
+ _button(region_list,"← К районам","region_back")
+
+func show_settlement(district_id: String, settlement_id: String) -> void:
+ if RegionCatalog.settlement(district_id,settlement_id).is_empty():
+  return
+ _clear_region_choices()
+ region_title.text = RegionCatalog.label(district_id,settlement_id)
+ region_list.add_child(_label("Территория: демонстрационный раздел.\nВаша текущая ферма остаётся без изменений.",19,MUTED))
+ _button(region_list,"← К населённым пунктам","region_district:"+district_id)
+ _button(region_list,"Вернуться к ферме","region_close")
+
 func _layout() -> void:
  var viewport := get_viewport().get_visible_rect().size
  var compact := viewport.x < 1050
@@ -155,6 +224,7 @@ func _layout() -> void:
  actions_panel.size = Vector2(width,0)
  actions_panel.position = Vector2(margin,viewport.y-actions_panel.get_combined_minimum_size().y-margin)
  title_label.add_theme_font_size_override("font_size",32)
+ region_panel.custom_minimum_size = Vector2(minf(viewport.x-48.0,640.0),0)
 
 func show_menu() -> void:
  menu_overlay.visible = true

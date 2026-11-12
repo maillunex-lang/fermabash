@@ -27,3 +27,4 @@ jobs:
           godot --headless --path . --script res://tests/production.gd
           godot --headless --path . --script res://tests/living_field.gd
           godot --headless --path . --script res://tests/android_controls.gd
+          godot --headless --path . --script res://tests/region_navigation.gd
