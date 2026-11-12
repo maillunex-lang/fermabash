@@ -18,14 +18,14 @@ func _test() -> void:
  rig.zoom = -5.0
  rig.apply(camera)
  assert(rig.zoom == 12.0)
- var initial := rig.focus
+ var initial: Vector3 = rig.focus
  rig.pan(Vector2(80,40))
  rig.apply(camera)
  assert(rig.focus != initial)
  var wheel := InputEventMouseButton.new()
  wheel.button_index = MOUSE_BUTTON_WHEEL_UP
  wheel.pressed = true
- var old_zoom := rig.zoom
+ var old_zoom: float = rig.zoom
  assert(rig.mouse(wheel))
  assert(rig.zoom < old_zoom)
  var world := Node3D.new()
