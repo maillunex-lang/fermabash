@@ -75,13 +75,13 @@ func _ready() -> void:
  var sun := DirectionalLight3D.new()
  sun.rotation_degrees = Vector3(-42,-28,0)
  sun.light_color = Color("ffe4bf")
- sun.light_energy = 1.7
+ sun.light_energy = 1.05
  sun.shadow_enabled = false
  add_child(sun)
  var fill := DirectionalLight3D.new()
  fill.rotation_degrees = Vector3(-18,140,0)
  fill.light_color = Color("9eb7c9")
- fill.light_energy = 0.28
+ fill.light_energy = 0.18
  fill.shadow_enabled = false
  add_child(fill)
  var ambience := WorldEnvironment.new()
@@ -90,19 +90,19 @@ func _ready() -> void:
  env.background_color = Color("8eb8cc")
  env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
  env.ambient_light_color = Color("f4ead2")
- env.ambient_light_energy = 0.52
+ env.ambient_light_energy = 0.32
  env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
- env.tonemap_exposure = 1.08
- env.glow_enabled = true
+ env.tonemap_exposure = 0.88
+ env.glow_enabled = false
  env.glow_intensity = 0.62
  env.glow_strength = 0.95
  env.glow_bloom = 0.18
  env.glow_hdr_threshold = 0.82
  env.fog_enabled = true
  env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
- env.fog_density = 0.0055
- env.fog_light_color = Color("f6e8c8")
- env.fog_aerial_perspective = 0.4
+ env.fog_density = 0.0012
+ env.fog_light_color = Color("a5b9b6")
+ env.fog_aerial_perspective = 0.08
  ambience.environment = env
  add_child(ambience)
  farm_fx = FarmFX.new()
