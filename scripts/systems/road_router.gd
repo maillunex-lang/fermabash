@@ -2,7 +2,7 @@ extends RefCounted
 const Territory = preload("res://scripts/systems/territory_rules.gd")
 const DIRECTIONS := [Vector2i(1,0),Vector2i(-1,0),Vector2i(0,1),Vector2i(0,-1)]
 ## A* pathfinding on owned land. Existing roads reduce travel cost.
-static func find_route(start: Vector2i, target: Vector2i, extra: Dictionary, roads: Dictionary) -> Array[Vector2i]:
+static func find_route(start: Vector2i, target: Vector2i, extra: Dictionary, roads: Dictionary, blocked: Dictionary = {}) -> Array[Vector2i]:
  var empty: Array[Vector2i] = []
  if not Territory.owned(start,extra) or not Territory.owned(target,extra):
   return empty
@@ -24,7 +24,7 @@ static func find_route(start: Vector2i, target: Vector2i, extra: Dictionary, roa
    return route
   for direction in DIRECTIONS:
    var next: Vector2i = current+direction
-   if not Territory.owned(next,extra):
+   if not Territory.owned(next,extra) or (blocked.has(Territory.key(next)) and next != target):
     continue
    var road: String = str(roads.get(Territory.key(next),""))
    var cost: float = 1.0/Territory.road_multiplier(road)
