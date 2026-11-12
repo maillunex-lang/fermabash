@@ -15,12 +15,8 @@ func _test() -> void:
  assert(not ui.action_buttons["prepare"].visible)
  scene._ui_action("build_shed")
  assert(scene.build)
- var old_angle: float = scene.camera_rig.angle
- var old_zoom: float = scene.camera_rig.zoom
- scene._ui_action("camera_right")
- scene._ui_action("camera_in")
- assert(scene.camera_rig.angle > old_angle)
- assert(scene.camera_rig.zoom < old_zoom)
+ assert(ui.main_root.mouse_filter == Control.MOUSE_FILTER_IGNORE)
+ assert(ui.actions_panel.mouse_filter == Control.MOUSE_FILTER_STOP)
  var a := InputEventScreenTouch.new()
  a.index = 0
  a.pressed = true
@@ -32,6 +28,15 @@ func _test() -> void:
  b.position = Vector2(400,200)
  scene._unhandled_input(b)
  assert(scene.gesture_multitouch)
+ var drag := InputEventScreenDrag.new()
+ drag.index = 1
+ drag.position = Vector2(455,240)
+ drag.relative = Vector2(55,40)
+ var old_angle: float = scene.camera_rig.angle
+ var old_zoom: float = scene.camera_rig.zoom
+ scene._unhandled_input(drag)
+ assert(not is_equal_approx(scene.camera_rig.angle,old_angle))
+ assert(not is_equal_approx(scene.camera_rig.zoom,old_zoom))
  b.pressed = false
  scene._unhandled_input(b)
  a.pressed = false
