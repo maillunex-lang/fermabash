@@ -740,3 +740,5 @@ func _load() -> void:
  day = int(data["day"])
  elapsed_seconds = float(data.get("elapsed_seconds", (day-1) * GameClock.SECONDS_PER_YEAR / 365.0))
  _draw()
+ if job == "" and not field_tasks.is_empty():
+  _start_next_field_task()
