@@ -88,12 +88,12 @@ func _ready() -> void:
  _menu()
 func _ui_action(action: String) -> void:
  if action.begins_with("region_district:"):
-  game_ui.show_district(action.trim_prefix("region_district:"))
+  game_ui.show_district(action.trim_prefix("region_district:"),farm_profile)
   return
  match action:
   "region_map": game_ui.show_regions(farm_profile)
   "region_close": game_ui.hide_regions()
-  "region_back": game_ui._populate_regions()
+  "region_back": game_ui._populate_regions(farm_profile)
   "region_district_list": game_ui._populate_regions()
   "tab_field": game_ui.show_tab("field")
   "tab_construction": game_ui.show_tab("construction")
