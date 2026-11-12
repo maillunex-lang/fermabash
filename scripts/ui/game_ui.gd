@@ -182,6 +182,6 @@ func show_tab(tab: String) -> void:
  for action in action_buttons:
   var construction: bool = str(action).begins_with("build") or action == "cancel_build"
   action_buttons[action].visible = construction if tab == "construction" else not construction
- _layout.call_deferred()
+ call_deferred("_layout")
  for key in tab_buttons:
   tab_buttons[key].disabled = key == tab
