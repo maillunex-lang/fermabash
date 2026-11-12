@@ -41,12 +41,16 @@ func _test() -> void:
  scene._job("prepare")
  assert(scene.cash == original_cash-50)
  assert(scene.active_plot == "1,1")
- for i in range(200):
+ scene.selected_plot = "1,3"
+ scene._plot_job("prepare")
+ assert(scene.field_tasks.size() == 1)
+ scene.selected_plot = "1,1"
+ for i in range(250):
   scene._process(0.2)
  assert(bool(scene._plot_state("1,1")["prepared"]))
  assert(scene.stage == 0)
  assert(bool(scene._plot_state("1,2")["prepared"]))
- assert(not bool(scene._plot_state("1,3")["prepared"]))
+ assert(bool(scene._plot_state("1,3")["prepared"]))
  scene._job("sow")
  for i in range(200):
   scene._process(0.2)
@@ -60,6 +64,7 @@ func _test() -> void:
  assert(scene.grain == 6)
  assert(int(scene._plot_state("1,2")["stage"]) == 0)
  assert(int(scene._plot_state("1,3")["stage"]) == 0)
+ assert(bool(scene._plot_state("1,3")["prepared"]))
  assert(int(scene._plot_state("1,1")["stage"]) == 0)
  scene._save()
  var expected: Dictionary = scene._snapshot()
