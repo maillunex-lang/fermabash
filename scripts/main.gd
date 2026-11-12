@@ -1,6 +1,7 @@
 extends Node3D
 const CELL := 3.0
 const SAVE := "user://farm.json"
+const Territory = preload("res://scripts/systems/territory_rules.gd")
 const BuildRules = preload("res://scripts/systems/build_rules.gd")
 const SaveStore = preload("res://scripts/systems/save_store.gd")
 const GameClock = preload("res://scripts/systems/game_clock.gd")
@@ -22,6 +23,12 @@ var progress := 0.0
 var structures := {"2,2":true}
 var build := false
 var build_kind := "warehouse"
+var territory_mode := ""
+var extra_land: Dictionary = {}
+var field_plots: Dictionary = {}
+var roads: Dictionary = {}
+var road_kind := "gravel"
+var road_vehicle_progress := 0.0
 var preview_cell := Vector2i(-1,-1)
 var preview: MeshInstance3D
 var running := false
@@ -101,6 +108,11 @@ func _ui_action(action: String) -> void:
   "build_workshop": _start_build("workshop")
   "build_complex": _start_build("complex")
   "cancel_build": _cancel_build()
+  "buy_land": _start_territory("land")
+  "place_field": _start_territory("field")
+  "road_dirt": _start_territory("road_dirt")
+  "road_gravel": _start_territory("road_gravel")
+  "road_asphalt": _start_territory("road_asphalt")
   "save": _save()
   "menu": _menu()
   "new": _new()
@@ -130,6 +142,10 @@ func _new() -> void:
  job = ""
  progress = 0
  structures = {"2,2":true}
+ extra_land.clear()
+ field_plots.clear()
+ roads.clear()
+ road_vehicle_progress = 0.0
  _cancel_build()
  game_ui.show_tab("field")
  _draw()
@@ -147,10 +163,17 @@ func _cube(parent: Node3D,pos: Vector3,size: Vector3,color: Color) -> void:
 func _draw() -> void:
  for c in world.get_children():
   c.queue_free()
- for x in range(16):
-  for z in range(16):
+ for x in range(Territory.MAX_SIZE):
+  for z in range(Territory.MAX_SIZE):
+   var cell := Vector2i(x,z)
+   if not Territory.owned(cell,extra_land):
+    continue
    var color := Color("7aa55d")
-   if z == 7 or z == 8:
+   if roads.has(Territory.key(cell)):
+    color = {"dirt":Color("8c7252"),"gravel":Color("a4a6a0"),"asphalt":Color("424a4d")}[roads[Territory.key(cell)]]
+   elif field_plots.has(Territory.key(cell)):
+    color = Color("72512f")
+   elif z == 7 or z == 8:
     color = Color("666e72")
    elif x >= 5 and x <= 8 and z >= 3 and z <= 6:
     color = Color("8d6841") if stage == 0 else (Color("65b548") if stage == 1 else Color("d4ae47"))
@@ -216,6 +239,7 @@ func _job(kind: String) -> void:
  _update_machine_position()
  status.text = "Техника отправлена: %s" % kind
 func _start_build(kind: String = "warehouse") -> void:
+ territory_mode = ""
  if not BuildRules.CATALOG.has(kind):
   return
  build_kind = kind
@@ -226,6 +250,7 @@ func _start_build(kind: String = "warehouse") -> void:
  status.text = "%s %d×%d: %d ₽. Выберите клетку" % [item["title"],item["size"],item["size"],item["cost"]]
 func _cancel_build() -> void:
  build = false
+ territory_mode = ""
  preview_cell = Vector2i(-1,-1)
  if preview != null:
   preview.visible = false
@@ -238,7 +263,7 @@ func _update_preview(position: Vector2) -> void:
   preview.visible = false
   return
  var size: int = int(BuildRules.definition(build_kind)["size"])
- var valid := BuildRules.can_place(cell,structures,build_kind) and cash >= BuildRules.price(build_kind)
+ var valid := BuildRules.can_place(cell,structures,build_kind) and _footprint_clear(cell,build_kind) and cash >= BuildRules.price(build_kind)
  var mesh := BoxMesh.new()
  mesh.size = Vector3(float(size)*CELL,0.12,float(size)*CELL)
  preview.mesh = mesh
@@ -249,6 +274,44 @@ func _update_preview(position: Vector2) -> void:
  material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
  preview.material_override = material
  preview.visible = true
+func _start_territory(kind: String) -> void:
+ _cancel_build()
+ territory_mode = kind
+ if kind.begins_with("road_"):
+  road_kind = kind.trim_prefix("road_")
+ var price := Territory.LAND_PRICE if kind == "land" else (Territory.FIELD_PRICE if kind == "field" else int(Territory.ROAD_PRICES.get(road_kind,0)))
+ status.text = "Режим %s: %d ₽ за клетку. Нажмите на участок" % [kind,price]
+
+func _develop(cell: Vector2i) -> bool:
+ var k := Territory.key(cell)
+ if territory_mode == "land":
+  if not Territory.can_buy(cell,extra_land) or cash < Territory.LAND_PRICE:
+   status.text = "Участок недоступен или не хватает денег"
+   return false
+  cash -= Territory.LAND_PRICE
+  extra_land[k] = true
+ elif territory_mode == "field":
+  if not Territory.can_develop(cell,extra_land,structures,field_plots,roads) or cash < Territory.FIELD_PRICE:
+   status.text = "Нельзя разместить поле"
+   return false
+  cash -= Territory.FIELD_PRICE
+  field_plots[k] = true
+ elif territory_mode.begins_with("road_"):
+  var price: int = int(Territory.ROAD_PRICES[road_kind])
+  if not Territory.can_develop(cell,extra_land,structures,field_plots,roads) or cash < price:
+   status.text = "Нельзя проложить дорогу"
+   return false
+  cash -= price
+  roads[k] = road_kind
+ else:
+  return false
+ status.text = "Участок %d, %d готов" % [cell.x,cell.y]
+ _draw()
+ return true
+
+func _road_speed_at(cell: Vector2i) -> float:
+ return Territory.road_multiplier(str(roads.get(Territory.key(cell),"")))
+
 func _sell() -> void:
  if grain == 0:
   status.text = "Склад пуст"
@@ -300,7 +363,7 @@ func _screen_cell(position: Vector2) -> Vector2i:
   return Vector2i(-1,-1)
  var p := origin+dir*(-origin.y/dir.y)
  var cell := Vector2i(floori(p.x/CELL),floori(p.z/CELL))
- if cell.x < 0 or cell.y < 0 or cell.x >= 16 or cell.y >= 16:
+ if not Territory.within(cell):
   return Vector2i(-1,-1)
  return cell
 func _pick_cell(position: Vector2) -> void:
@@ -309,6 +372,8 @@ func _pick_cell(position: Vector2) -> void:
   return
  if build:
   _build(cell)
+ elif territory_mode != "":
+  _develop(cell)
  else:
   status.text = "Клетка %d, %d" % [cell.x,cell.y]
 func _unhandled_input(e: InputEvent) -> void:
@@ -340,18 +405,27 @@ func _unhandled_input(e: InputEvent) -> void:
  elif e is InputEventMouseMotion:
   camera_rig.mouse(e)
   _update_preview(e.position)
- elif e is InputEventKey and e.pressed and e.keycode == KEY_ESCAPE and build:
+ elif e is InputEventKey and e.pressed and e.keycode == KEY_ESCAPE and (build or territory_mode != ""):
   _cancel_build()
   status.text = "Строительство отменено"
  else:
   camera_rig.mouse(e)
  _camera()
+func _footprint_clear(cell: Vector2i, kind: String) -> bool:
+ var size: int = BuildRules.size_of(kind)
+ for x in range(cell.x,cell.x+size):
+  for z in range(cell.y,cell.y+size):
+   var c := Vector2i(x,z)
+   if not Territory.owned(c,extra_land) or field_plots.has(Territory.key(c)) or roads.has(Territory.key(c)):
+    return false
+ return true
+
 func _build(cell: Vector2i) -> void:
  var price: int = BuildRules.price(build_kind)
  if cash < price:
   status.text = "Недостаточно денег"
   return
- if not BuildRules.can_place(cell,structures,build_kind):
+ if not BuildRules.can_place(cell,structures,build_kind) or not _footprint_clear(cell,build_kind):
   status.text = "Недоступная или занятая клетка"
   return
  cash -= price
@@ -360,7 +434,7 @@ func _build(cell: Vector2i) -> void:
  _draw()
  status.text = "Постройка завершена!"
 func _snapshot() -> Dictionary:
- return {"version":1,"cash":cash,"grain":grain,"stage":stage,"prepared":prepared,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds}
+ return {"version":1,"cash":cash,"grain":grain,"stage":stage,"prepared":prepared,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds,"extra_land":extra_land.duplicate(),"field_plots":field_plots.duplicate(),"roads":roads.duplicate()}
 func _save() -> void:
  if SaveStore.write(SAVE, _snapshot()):
   status.text = "Сохранено"
@@ -376,6 +450,13 @@ func _load() -> void:
  stage = int(data["stage"])
  prepared = bool(data.get("prepared",false))
  structures = data["structures"].duplicate()
+ extra_land = data.get("extra_land",{}).duplicate()
+ field_plots = data.get("field_plots",{}).duplicate()
+ roads = data.get("roads",{}).duplicate()
+ if not Territory.valid_layout(extra_land,field_plots,roads):
+  extra_land.clear()
+  field_plots.clear()
+  roads.clear()
  _cancel_build()
  job = str(data["job"])
  progress = float(data["progress"])
