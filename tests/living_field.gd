@@ -18,7 +18,7 @@ func _test() -> void:
  root.add_child(field)
  field.update_field(0,false,"prepare",0.0)
  assert(field.soil.multimesh.instance_count == 16)
- assert(field.crops.multimesh.instance_count == 320)
+ assert(field.crops.multimesh.instance_count == 640)
  var start_color := field.soil.multimesh.get_instance_color(0)
  field.update_field(0,false,"prepare",0.9)
  assert(field.last_signature.ends_with(":43"))
