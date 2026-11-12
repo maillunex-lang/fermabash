@@ -12,8 +12,8 @@ var gesture_angle := 0.0
 var gesture_center := Vector2.ZERO
 
 func apply(camera: Camera3D) -> void:
- focus.x = clampf(focus.x,-8.0,56.0)
- focus.z = clampf(focus.z,-8.0,56.0)
+ focus.x = clampf(focus.x,-8.0,80.0)
+ focus.z = clampf(focus.z,-8.0,80.0)
  zoom = clampf(zoom,12.0,75.0)
  camera.position = focus + Vector3(sin(angle)*zoom,zoom*tilt,cos(angle)*zoom)
  camera.look_at(focus)
