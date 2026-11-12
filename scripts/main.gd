@@ -493,8 +493,12 @@ func _load() -> void:
  field_plots = data.get("field_plots",{}).duplicate()
  roads = data.get("roads",{}).duplicate()
  farm_profile = data.get("farm_profile",{}).duplicate(true)
- if not farm_profile.is_empty() and not FarmRegistry.validate(farm_profile):
-  farm_profile.clear()
+ if not farm_profile.is_empty():
+  if not FarmRegistry.validate(farm_profile):
+   farm_profile.clear()
+  else:
+   farm_profile["plot_x"] = int(farm_profile["plot_x"])
+   farm_profile["plot_y"] = int(farm_profile["plot_y"])
  if not Territory.valid_layout(extra_land,field_plots,roads):
   extra_land.clear()
   field_plots.clear()
