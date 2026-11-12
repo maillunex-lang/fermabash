@@ -8,6 +8,8 @@ const FarmEnvironment = preload("res://scripts/visuals/farm_environment.gd")
 const StrategyCamera = preload("res://scripts/camera/strategy_camera.gd")
 const GameUI = preload("res://scripts/ui/game_ui.gd")
 const ProductionRules = preload("res://scripts/systems/production_rules.gd")
+const FieldRoute = preload("res://scripts/systems/field_route.gd")
+const LivingField = preload("res://scripts/visuals/living_field.gd")
 var elapsed_seconds := 0.0
 var cash := 2000
 var grain := 0
@@ -22,6 +24,7 @@ var build_kind := "warehouse"
 var preview_cell := Vector2i(-1,-1)
 var preview: MeshInstance3D
 var running := false
+var living_field: Node3D
 var world: Node3D
 var cam: Camera3D
 var hud: Label
@@ -36,6 +39,8 @@ var touch_count := 0
 func _ready() -> void:
  world = Node3D.new()
  add_child(world)
+ living_field = LivingField.new()
+ add_child(living_field)
  preview = MeshInstance3D.new()
  add_child(preview)
  preview.visible = false
@@ -127,7 +132,7 @@ func _draw() -> void:
    elif x >= 5 and x <= 8 and z >= 3 and z <= 6:
     color = Color("8d6841") if stage == 0 else (Color("65b548") if stage == 1 else Color("d4ae47"))
    _cube(world,Vector3((x+0.5)*CELL,-0.1,(z+0.5)*CELL),Vector3(2.94,0.2,2.94),color)
- FarmEnvironment.decorate(world,stage)
+ FarmEnvironment.decorate(world,0)
  for key in structures:
   var p: Array = key.split(",")
   var x := int(p[0])
@@ -151,6 +156,16 @@ func _draw() -> void:
  _cube(harvester,Vector3(0,1,0),Vector3(3,1.7,2.2),Color("d5a02e"))
  _cube(harvester,Vector3(1.9,0.5,0),Vector3(1.3,0.3,4),Color("30383a"))
  harvester.position = Vector3(11,0,23)
+ _update_field_visuals()
+ _update_machine_position()
+func _update_field_visuals() -> void:
+ living_field.update_field(stage,prepared,job,progress)
+func _update_machine_position() -> void:
+ if job == "":
+  return
+ var machine := harvester if job == "harvest" else tractor
+ machine.position = FieldRoute.position_at(progress)
+ machine.rotation.y = FieldRoute.heading_at(progress)
 func _job(kind: String) -> void:
  if job != "":
   status.text = "Техника занята"
@@ -174,6 +189,8 @@ func _job(kind: String) -> void:
    return
  job = kind
  progress = 0.0
+ _update_field_visuals()
+ _update_machine_position()
  status.text = "Техника отправлена: %s" % kind
 func _start_build(kind: String = "warehouse") -> void:
  if not BuildRules.CATALOG.has(kind):
@@ -223,8 +240,9 @@ func _process(delta: float) -> void:
  day = GameClock.day_from_seconds(elapsed_seconds)
  if job != "":
   progress += delta/6.0
-  var machine := harvester if job == "harvest" else tractor
-  machine.position = Vector3(15+progress*10,0,12+progress*5)
+  progress = minf(progress,1.0)
+  _update_machine_position()
+  _update_field_visuals()
   if progress >= 1.0:
    if job == "prepare":
     prepared = true
@@ -243,6 +261,7 @@ func _process(delta: float) -> void:
    _draw()
  elif stage == 1:
   progress += delta/10.0
+  _update_field_visuals()
   if progress >= 1.0:
    stage = 2
    progress = 0.0
