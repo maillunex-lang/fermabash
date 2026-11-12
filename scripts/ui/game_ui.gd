@@ -23,6 +23,8 @@ var region_title: Label
 var region_selected := ""
 var city_map: Control
 var city_details: Label
+var city_buttons: Dictionary = {}
+var city_scroll: ScrollContainer
 var tab_buttons: Dictionary = {}
 
 
@@ -177,23 +179,67 @@ func show_regions() -> void:
 func show_beta_map() -> void:
  _clear_region_choices()
  region_title.text = "БАШКОРТОСТАН · 8 ГОРОДОВ"
- var hint := _label("Бета-карта: примерные центры городов, без границ районов.",18,MUTED)
- region_list.add_child(hint)
+ region_list.add_child(_label("Бета-карта: центры городов показаны приблизительно.",17,MUTED))
+ var content := HBoxContainer.new()
+ content.add_theme_constant_override("separation",12)
+ region_list.add_child(content)
  city_map = BetaCityMap.new()
- city_map.custom_minimum_size = Vector2(600,350)
+ city_map.custom_minimum_size = Vector2(390,290)
  city_map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
- region_list.add_child(city_map)
- city_details = _label("Нажмите на точку города",20,ACCENT)
+ content.add_child(city_map)
+ city_scroll = ScrollContainer.new()
+ city_scroll.custom_minimum_size = Vector2(225,290)
+ city_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+ city_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+ content.add_child(city_scroll)
+ var city_list := VBoxContainer.new()
+ city_list.add_theme_constant_override("separation",6)
+ city_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+ city_scroll.add_child(city_list)
+ city_buttons.clear()
+ for entry in BetaCityCatalog.CITIES:
+  var id: String = str(entry["id"])
+  var button := Button.new()
+  button.text = str(entry["name"])
+  button.custom_minimum_size = Vector2(175,56)
+  button.add_theme_font_size_override("font_size",19)
+  button.add_theme_stylebox_override("normal",_style(Color("29554a")))
+  button.add_theme_stylebox_override("pressed",_style(Color("b88533")))
+  button.pressed.connect(func(): city_map._select(id))
+  city_list.add_child(button)
+  city_buttons[id] = button
+ city_details = _label("Выберите город на карте или в списке",19,ACCENT)
  region_list.add_child(city_details)
  city_map.city_selected.connect(_city_selected)
- _button(region_list,"Районы и населённые пункты","region_district_list")
- _button(region_list,"← Вернуться к хозяйству","region_close")
+ var navigation := HBoxContainer.new()
+ navigation.add_theme_constant_override("separation",8)
+ region_list.add_child(navigation)
+ var district_button := _button(navigation,"Районы","region_district_list")
+ var close_button := _button(navigation,"← К ферме","region_close")
+ for button in [district_button,close_button]:
+  button.custom_minimum_size = Vector2(220,58)
+  button.add_theme_font_size_override("font_size",20)
+ _layout_regions()
+
+func _layout_regions() -> void:
+ if city_map == null or not is_instance_valid(city_map):
+  return
+ var viewport := get_viewport().get_visible_rect().size
+ var compact := viewport.x < 800.0
+ region_panel.custom_minimum_size = Vector2(minf(viewport.x-32.0,780.0),0)
+ city_map.custom_minimum_size = Vector2(maxf(250.0,minf(viewport.x*0.53,430.0)),clampf(viewport.y-260.0,190.0,330.0))
+ city_scroll.custom_minimum_size = Vector2(160,city_map.custom_minimum_size.y)
+ if compact:
+  city_map.custom_minimum_size.x = maxf(210.0,viewport.x*0.48)
+  city_scroll.custom_minimum_size.x = 145
 
 func _city_selected(city_id: String) -> void:
  var item: Dictionary = BetaCityCatalog.city(city_id)
  if item.is_empty():
   return
  city_details.text = str(item["name"]) + " · центр города (ориентировочно)"
+ for key in city_buttons:
+  (city_buttons[key] as Button).disabled = key == city_id
  action_requested.emit("region_city:"+city_id)
 
 func hide_regions() -> void:
@@ -202,6 +248,8 @@ func hide_regions() -> void:
 func _clear_region_choices() -> void:
  city_map = null
  city_details = null
+ city_scroll = null
+ city_buttons.clear()
  for child in region_list.get_children():
   if child != region_title:
    child.queue_free()
@@ -252,7 +300,8 @@ func _layout() -> void:
  actions_panel.size = Vector2(width,0)
  actions_panel.position = Vector2(margin,viewport.y-actions_panel.get_combined_minimum_size().y-margin)
  title_label.add_theme_font_size_override("font_size",32)
- region_panel.custom_minimum_size = Vector2(minf(viewport.x-48.0,680.0),0)
+ region_panel.custom_minimum_size = Vector2(minf(viewport.x-32.0,780.0),0)
+ _layout_regions()
 
 func show_menu() -> void:
  menu_overlay.visible = true
