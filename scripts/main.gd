@@ -33,6 +33,7 @@ func _ready() -> void:
  cam.current = true
  _camera()
  var ui := CanvasLayer.new()
+ ui.name = "GameUI"
  add_child(ui)
  var root := Control.new()
  root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -64,7 +65,7 @@ func _menu() -> void:
  running = false
  menu = CenterContainer.new()
  menu.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
- get_node("CanvasLayer").add_child(menu)
+ get_node("GameUI").add_child(menu)
  var box := VBoxContainer.new()
  menu.add_child(box)
  var title := Label.new()
