@@ -21,3 +21,4 @@ jobs:
         run: |
           godot --headless --path . --script res://tests/smoke.gd
           godot --headless --path . --script res://tests/systems.gd
+          godot --headless --path . --script res://tests/world_camera.gd
