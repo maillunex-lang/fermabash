@@ -1,5 +1,7 @@
 extends CanvasLayer
 const RegionCatalog = preload("res://scripts/systems/region_catalog.gd")
+const BetaCityCatalog = preload("res://scripts/systems/beta_city_catalog.gd")
+const BetaCityMap = preload("res://scripts/ui/beta_city_map.gd")
 ## Russian-language adaptive HUD and menu. All game actions are emitted as signals.
 signal action_requested(action: String)
 var stats: Label
@@ -19,6 +21,8 @@ var region_panel: PanelContainer
 var region_list: VBoxContainer
 var region_title: Label
 var region_selected := ""
+var city_map: Control
+var city_details: Label
 var tab_buttons: Dictionary = {}
 
 
@@ -168,12 +172,36 @@ func _make_region_menu() -> void:
 func show_regions() -> void:
  region_overlay.visible = true
  region_selected = ""
- _populate_regions()
+ show_beta_map()
+
+func show_beta_map() -> void:
+ _clear_region_choices()
+ region_title.text = "БАШКОРТОСТАН · 8 ГОРОДОВ"
+ var hint := _label("Бета-карта: примерные центры городов, без границ районов.",18,MUTED)
+ region_list.add_child(hint)
+ city_map = BetaCityMap.new()
+ city_map.custom_minimum_size = Vector2(600,350)
+ city_map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+ region_list.add_child(city_map)
+ city_details = _label("Нажмите на точку города",20,ACCENT)
+ region_list.add_child(city_details)
+ city_map.city_selected.connect(_city_selected)
+ _button(region_list,"Районы и населённые пункты","region_district_list")
+ _button(region_list,"← Вернуться к хозяйству","region_close")
+
+func _city_selected(city_id: String) -> void:
+ var item: Dictionary = BetaCityCatalog.city(city_id)
+ if item.is_empty():
+  return
+ city_details.text = str(item["name"]) + " · центр города (ориентировочно)"
+ action_requested.emit("region_city:"+city_id)
 
 func hide_regions() -> void:
  region_overlay.visible = false
 
 func _clear_region_choices() -> void:
+ city_map = null
+ city_details = null
  for child in region_list.get_children():
   if child != region_title:
    child.queue_free()
@@ -224,7 +252,7 @@ func _layout() -> void:
  actions_panel.size = Vector2(width,0)
  actions_panel.position = Vector2(margin,viewport.y-actions_panel.get_combined_minimum_size().y-margin)
  title_label.add_theme_font_size_override("font_size",32)
- region_panel.custom_minimum_size = Vector2(minf(viewport.x-48.0,640.0),0)
+ region_panel.custom_minimum_size = Vector2(minf(viewport.x-48.0,680.0),0)
 
 func show_menu() -> void:
  menu_overlay.visible = true

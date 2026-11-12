@@ -7,6 +7,7 @@ const GameClock = preload("res://scripts/systems/game_clock.gd")
 const FarmEnvironment = preload("res://scripts/visuals/farm_environment.gd")
 const StrategyCamera = preload("res://scripts/camera/strategy_camera.gd")
 const GameUI = preload("res://scripts/ui/game_ui.gd")
+const BetaCityCatalog = preload("res://scripts/systems/beta_city_catalog.gd")
 const ProductionRules = preload("res://scripts/systems/production_rules.gd")
 const FieldRoute = preload("res://scripts/systems/field_route.gd")
 const LivingField = preload("res://scripts/visuals/living_field.gd")
@@ -71,6 +72,11 @@ func _ready() -> void:
  _draw()
  _menu()
 func _ui_action(action: String) -> void:
+ if action.begins_with("region_city:"):
+  var city: Dictionary = BetaCityCatalog.city(action.trim_prefix("region_city:"))
+  if not city.is_empty():
+   status.text = "Выбран город: " + str(city["name"])
+  return
  if action.begins_with("region_district:"):
   game_ui.show_district(action.trim_prefix("region_district:"))
   return
@@ -83,6 +89,7 @@ func _ui_action(action: String) -> void:
   "region_map": game_ui.show_regions()
   "region_close": game_ui.hide_regions()
   "region_back": game_ui.show_regions()
+  "region_district_list": game_ui._populate_regions()
   "tab_field": game_ui.show_tab("field")
   "tab_construction": game_ui.show_tab("construction")
   "prepare": _job("prepare")
