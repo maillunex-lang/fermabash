@@ -276,11 +276,21 @@ func _draw() -> void:
   _cube(world,center+Vector3(0,1.5,0),Vector3(width-0.2,0.6,width-0.2),Color.html(str(BuildRules.definition(kind)["color"])))
  tractor = Node3D.new()
  world.add_child(tractor)
- _cube(tractor,Vector3(0,0.8,0),Vector3(2.5,1.2,1.6),Color("d65b2d"))
- _cube(tractor,Vector3(-0.4,1.5,0),Vector3(1.1,0.8,1.3),Color("528b9a"))
- for x in [-0.9,0.9]:
-  for z in [-0.8,0.8]:
-   _cube(tractor,Vector3(x,0.25,z),Vector3(0.6,0.7,0.4),Color("24292c"))
+ # Imported Blender asset is visual-only: movement and farm logic remain on this parent.
+ var tractor_asset := load("res://assets/vehicles/tractor_mobile.glb") as PackedScene
+ if tractor_asset != null:
+  var tractor_visual := tractor_asset.instantiate() as Node3D
+  tractor.add_child(tractor_visual)
+  tractor_visual.scale = Vector3(1.65, 2.0, 2.0)
+  tractor_visual.rotation.y = PI * 0.5
+  tractor_visual.position.y = 0.75
+ else:
+  # Keep a visible fallback in editor checkouts without the external binary asset.
+  _cube(tractor,Vector3(0,0.8,0),Vector3(2.5,1.2,1.6),Color("d65b2d"))
+  _cube(tractor,Vector3(-0.4,1.5,0),Vector3(1.1,0.8,1.3),Color("528b9a"))
+  for x in [-0.9,0.9]:
+   for z in [-0.8,0.8]:
+    _cube(tractor,Vector3(x,0.25,z),Vector3(0.6,0.7,0.4),Color("24292c"))
  tractor.position = Vector3(5,0,23)
  harvester = Node3D.new()
  world.add_child(harvester)
