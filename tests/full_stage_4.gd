@@ -1,0 +1,56 @@
+extends SceneTree
+const Plot = preload("res://scripts/systems/plot_production.gd")
+const Router = preload("res://scripts/systems/road_router.gd")
+const Territory = preload("res://scripts/systems/territory_rules.gd")
+func _initialize() -> void:
+ call_deferred("_test")
+func _test() -> void:
+ var empty: Dictionary = Plot.initial()
+ assert(Plot.allowed(empty,"prepare",25,0))
+ assert(not Plot.allowed(empty,"sow",100,6))
+ var prepared: Dictionary = Plot.finish(empty,"prepare")
+ assert(Plot.allowed(prepared,"sow",40,0))
+ var planted: Dictionary = Plot.finish(prepared,"sow")
+ assert(int(planted["stage"]) == 1)
+ assert(int(Plot.grow(planted,10.0)["stage"]) == 2)
+ assert(Plot.allowed(Plot.grow(planted,10.0),"harvest",0,3))
+ assert(not Plot.allowed(Plot.grow(planted,10.0),"harvest",0,2))
+ var plain: Array[Vector2i] = Router.find_route(Vector2i(0,8),Vector2i(3,8),{},{})
+ assert(plain.size() == 4)
+ var roads: Dictionary = {"1,8":"asphalt","2,8":"asphalt","3,8":"asphalt"}
+ assert(Router.travel_time(plain,roads) < Router.travel_time(plain,{}))
+ assert(Router.find_route(Vector2i(0,8),Vector2i(23,23),{},{}).is_empty())
+ var scene = load("res://scenes/Main.tscn").instantiate()
+ root.add_child(scene)
+ await process_frame
+ scene._new()
+ scene._start_territory("field")
+ assert(scene._develop(Vector2i(1,1)))
+ scene.selected_plot = "1,1"
+ var original_cash: int = scene.cash
+ scene._job("prepare")
+ assert(scene.cash == original_cash-25)
+ assert(scene.active_plot == "1,1")
+ for i in range(200):
+  scene._process(0.2)
+ assert(bool(scene._plot_state("1,1")["prepared"]))
+ assert(scene.stage == 0)
+ scene._job("sow")
+ for i in range(200):
+  scene._process(0.2)
+ assert(int(scene._plot_state("1,1")["stage"]) >= 1)
+ for i in range(60):
+  scene._process(0.2)
+ assert(int(scene._plot_state("1,1")["stage"]) == 2)
+ scene._job("harvest")
+ for i in range(200):
+  scene._process(0.2)
+ assert(scene.grain == 3)
+ assert(int(scene._plot_state("1,1")["stage"]) == 0)
+ scene._save()
+ var expected: Dictionary = scene._snapshot()
+ scene.field_plots.clear()
+ scene._load()
+ assert(scene.field_plots == expected["field_plots"])
+ print("FULL_STAGE_4_TEST_PASS")
+ quit()
