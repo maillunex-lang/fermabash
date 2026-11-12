@@ -1,6 +1,8 @@
 extends Node3D
 const CELL := 3.0
 const SAVE := "user://farm.json"
+const PlotProduction = preload("res://scripts/systems/plot_production.gd")
+const RoadRouter = preload("res://scripts/systems/road_router.gd")
 const Territory = preload("res://scripts/systems/territory_rules.gd")
 const BuildRules = preload("res://scripts/systems/build_rules.gd")
 const SaveStore = preload("res://scripts/systems/save_store.gd")
@@ -30,6 +32,11 @@ var field_plots: Dictionary = {}
 var roads: Dictionary = {}
 var road_kind := "gravel"
 var road_vehicle_progress := 0.0
+var selected_plot := ""
+var active_plot := ""
+var travel_route: Array[Vector2i] = []
+var travel_index := 0
+var travel_fraction := 0.0
 var preview_cell := Vector2i(-1,-1)
 var preview: MeshInstance3D
 var running := false
@@ -96,6 +103,7 @@ func _ui_action(action: String) -> void:
   "region_back": game_ui._populate_regions(farm_profile)
   "region_district_list": game_ui._populate_regions()
   "tab_field": game_ui.show_tab("field")
+  "tab_territory": game_ui.show_tab("territory")
   "tab_construction": game_ui.show_tab("construction")
   "prepare": _job("prepare")
   "sow": _job("sow")
@@ -158,6 +166,9 @@ func _new() -> void:
  field_plots.clear()
  roads.clear()
  road_vehicle_progress = 0.0
+ selected_plot = ""
+ active_plot = ""
+ travel_route.clear()
  _cancel_build()
  game_ui.show_tab("field")
  _draw()
@@ -184,7 +195,10 @@ func _draw() -> void:
    if roads.has(Territory.key(cell)):
     color = {"dirt":Color("8c7252"),"gravel":Color("a4a6a0"),"asphalt":Color("424a4d")}[roads[Territory.key(cell)]]
    elif field_plots.has(Territory.key(cell)):
-    color = Color("72512f")
+    var plot: Dictionary = _plot_state(Territory.key(cell))
+    color = Color("d8af48") if int(plot["stage"]) == 2 else (Color("63a548") if int(plot["stage"]) == 1 else (Color("b48655") if bool(plot["prepared"]) else Color("72512f"))
+    if selected_plot == Territory.key(cell):
+     color = color.lightened(0.35)
    elif z == 7 or z == 8:
     color = Color("666e72")
    elif x >= 5 and x <= 8 and z >= 3 and z <= 6:
@@ -219,12 +233,15 @@ func _draw() -> void:
 func _update_field_visuals() -> void:
  living_field.update_field(stage,prepared,job,progress)
 func _update_machine_position() -> void:
- if job == "":
+ if job == "" or active_plot != "":
   return
  var machine := harvester if job == "harvest" else tractor
  machine.position = FieldRoute.position_at(progress)
  machine.rotation.y = FieldRoute.heading_at(progress)
 func _job(kind: String) -> void:
+ if selected_plot != "":
+  _plot_job(kind)
+  return
  if job != "":
   status.text = "Техника занята"
   return
@@ -307,7 +324,7 @@ func _develop(cell: Vector2i) -> bool:
    status.text = "Нельзя разместить поле"
    return false
   cash -= Territory.FIELD_PRICE
-  field_plots[k] = true
+  field_plots[k] = PlotProduction.initial()
  elif territory_mode.begins_with("road_"):
   var price: int = int(Territory.ROAD_PRICES[road_kind])
   if not Territory.can_develop(cell,extra_land,structures,field_plots,roads) or cash < price:
@@ -320,6 +337,59 @@ func _develop(cell: Vector2i) -> bool:
  status.text = "Участок %d, %d готов" % [cell.x,cell.y]
  _draw()
  return true
+
+func _plot_state(key: String) -> Dictionary:
+ var value: Variant = field_plots.get(key,PlotProduction.initial())
+ return value if PlotProduction.valid(value) else PlotProduction.initial()
+
+func _plot_job(kind: String) -> void:
+ if job != "":
+  status.text = "Техника занята"
+  return
+ if not field_plots.has(selected_plot):
+  selected_plot = ""
+  return
+ var state: Dictionary = _plot_state(selected_plot)
+ var available: int = ProductionRules.capacity(structures)-grain
+ if not PlotProduction.allowed(state,kind,cash,available):
+  status.text = "Операция на выбранном поле недоступна"
+  return
+ var parts: PackedStringArray = selected_plot.split(",")
+ var target := Vector2i(int(parts[0]),int(parts[1]))
+ var route: Array[Vector2i] = RoadRouter.find_route(Vector2i(0,8),target,extra_land,roads)
+ if route.is_empty():
+  status.text = "К полю нет доступного маршрута"
+  return
+ if kind == "prepare":
+  cash -= PlotProduction.PREPARE_COST
+ elif kind == "sow":
+  cash -= PlotProduction.SOW_COST
+ job = kind
+ active_plot = selected_plot
+ progress = 0.0
+ travel_route = route
+ travel_index = 0
+ travel_fraction = 0.0
+ status.text = "Техника едет к полю по оптимальному маршруту"
+
+func _travel(delta: float) -> void:
+ if travel_route.size() < 2 or travel_index >= travel_route.size()-1:
+  travel_route.clear()
+  return
+ var destination: Vector2i = travel_route[travel_index+1]
+ travel_fraction += delta*0.45*_road_speed_at(destination)
+ while travel_fraction >= 1.0 and travel_index < travel_route.size()-1:
+  travel_fraction -= 1.0
+  travel_index += 1
+ if travel_index >= travel_route.size()-1:
+  tractor.position = Vector3((float(destination.x)+0.5)*CELL,0,(float(destination.y)+0.5)*CELL)
+  travel_route.clear()
+  status.text = "Техника приступила к работе"
+  return
+ var origin: Vector2i = travel_route[travel_index]
+ destination = travel_route[travel_index+1]
+ tractor.position = Vector3((lerpf(float(origin.x),float(destination.x),travel_fraction)+0.5)*CELL,0,(lerpf(float(origin.y),float(destination.y),travel_fraction)+0.5)*CELL)
+ tractor.rotation.y = atan2(float(destination.x-origin.x),float(destination.y-origin.y))
 
 func _road_speed_at(cell: Vector2i) -> float:
  return Territory.road_multiplier(str(roads.get(Territory.key(cell),"")))
@@ -361,15 +431,32 @@ func _process(delta: float) -> void:
  if not running:
   return
  elapsed_seconds += delta
- _road_patrol(delta)
+ if job != "" and active_plot != "" and not travel_route.is_empty():
+  _travel(delta)
+ else:
+  _road_patrol(delta)
  day = GameClock.day_from_seconds(elapsed_seconds)
- if job != "":
+ for plot_key in field_plots.keys():
+  var current: Dictionary = _plot_state(str(plot_key))
+  if int(current["stage"]) == 1:
+   var grown: Dictionary = PlotProduction.grow(current,delta)
+   field_plots[plot_key] = grown
+   if int(grown["stage"]) == 2:
+    _draw()
+ if job != "" and not (active_plot != "" and not travel_route.is_empty()):
   progress += delta/6.0
   progress = minf(progress,1.0)
-  _update_machine_position()
-  _update_field_visuals()
+  if active_plot == "":
+   _update_machine_position()
+   _update_field_visuals()
   if progress >= 1.0:
-   if job == "prepare":
+   if active_plot != "":
+    field_plots[active_plot] = PlotProduction.finish(_plot_state(active_plot),job)
+    if job == "harvest":
+     grain += PlotProduction.YIELD_TONS
+    status.text = "Работа на выбранном поле завершена"
+    active_plot = ""
+   elif job == "prepare":
     prepared = true
     status.text = "Почва подготовлена"
    elif job == "sow":
@@ -392,7 +479,10 @@ func _process(delta: float) -> void:
    progress = 0.0
    status.text = "Пшеница созрела"
    _draw()
- game_ui.update_hud(day,cash,grain,stage,job,progress,build,prepared,ProductionRules.capacity(structures))
+ var displayed: Dictionary = _plot_state(selected_plot) if selected_plot != "" else {"stage":stage,"prepared":prepared}
+ game_ui.update_hud(day,cash,grain,int(displayed["stage"]),job,progress,build,bool(displayed["prepared"]),ProductionRules.capacity(structures))
+ if selected_plot != "":
+  game_ui.task.text = "Поле %s: %s" % [selected_plot,["Подготовка" if not bool(displayed["prepared"]) else "Готово к посеву","Растёт","Созрело"][int(displayed["stage"])]]
 func _camera() -> void:
  camera_rig.apply(cam)
 func _screen_cell(position: Vector2) -> Vector2i:
@@ -414,7 +504,10 @@ func _pick_cell(position: Vector2) -> void:
  elif territory_mode != "":
   _develop(cell)
  else:
-  status.text = "Клетка %d, %d" % [cell.x,cell.y]
+  var k := Territory.key(cell)
+  selected_plot = k if field_plots.has(k) else ""
+  status.text = "Выбрано поле "+k if selected_plot != "" else "Стартовое поле"
+  _draw()
 func _unhandled_input(e: InputEvent) -> void:
  if not running:
   return
@@ -472,8 +565,14 @@ func _build(cell: Vector2i) -> void:
  _cancel_build()
  _draw()
  status.text = "Постройка завершена!"
+func _route_save() -> Array:
+ var result: Array = []
+ for cell in travel_route:
+  result.append([cell.x,cell.y])
+ return result
+
 func _snapshot() -> Dictionary:
- return {"version":1,"cash":cash,"grain":grain,"stage":stage,"prepared":prepared,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds,"extra_land":extra_land.duplicate(),"field_plots":field_plots.duplicate(),"roads":roads.duplicate(),"farm_profile":farm_profile.duplicate(true)}
+ return {"version":1,"cash":cash,"grain":grain,"stage":stage,"prepared":prepared,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds,"extra_land":extra_land.duplicate(),"field_plots":field_plots.duplicate(),"roads":roads.duplicate(),"farm_profile":farm_profile.duplicate(true),"selected_plot":selected_plot,"active_plot":active_plot,"travel_index":travel_index,"travel_fraction":travel_fraction,"travel_route":_route_save()}
 func _save() -> void:
  if SaveStore.write(SAVE, _snapshot()):
   status.text = "Сохранено"
@@ -492,6 +591,20 @@ func _load() -> void:
  extra_land = data.get("extra_land",{}).duplicate()
  field_plots = data.get("field_plots",{}).duplicate()
  roads = data.get("roads",{}).duplicate()
+ for plot_key in field_plots.keys():
+  field_plots[plot_key] = _plot_state(str(plot_key))
+ selected_plot = str(data.get("selected_plot",""))
+ if not field_plots.has(selected_plot):
+  selected_plot = ""
+ active_plot = str(data.get("active_plot",""))
+ if not field_plots.has(active_plot):
+  active_plot = ""
+ travel_route.clear()
+ for pair in data.get("travel_route",[]):
+  if pair is Array and pair.size() == 2:
+   travel_route.append(Vector2i(int(pair[0]),int(pair[1])))
+ travel_index = clampi(int(data.get("travel_index",0)),0,maxi(0,travel_route.size()-1))
+ travel_fraction = clampf(float(data.get("travel_fraction",0.0)),0.0,0.999)
  farm_profile = data.get("farm_profile",{}).duplicate(true)
  if not farm_profile.is_empty():
   if not FarmRegistry.validate(farm_profile):
@@ -503,6 +616,10 @@ func _load() -> void:
   extra_land.clear()
   field_plots.clear()
   roads.clear()
+  field_plots.clear()
+  selected_plot = ""
+  active_plot = ""
+  travel_route.clear()
  _cancel_build()
  job = str(data["job"])
  progress = float(data["progress"])
