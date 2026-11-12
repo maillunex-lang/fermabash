@@ -30,3 +30,4 @@ jobs:
           godot --headless --path . --script res://tests/region_navigation.gd
           godot --headless --path . --script res://tests/beta_city_map.gd
           godot --headless --path . --script res://tests/territory.gd
+          godot --headless --path . --script res://tests/full_stage_4.gd
