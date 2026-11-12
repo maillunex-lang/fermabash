@@ -1,6 +1,10 @@
 extends Node3D
 const CELL := 3.0
 const SAVE := "user://farm.json"
+const BuildRules = preload("res://scripts/systems/build_rules.gd")
+const SaveStore = preload("res://scripts/systems/save_store.gd")
+const GameClock = preload("res://scripts/systems/game_clock.gd")
+var elapsed_seconds := 0.0
 var cash := 2000
 var grain := 0
 var day := 1
@@ -89,6 +93,7 @@ func _new() -> void:
  cash = 2000
  grain = 0
  day = 1
+ elapsed_seconds = 0.0
  stage = 0
  job = ""
  progress = 0
@@ -163,6 +168,8 @@ func _sell() -> void:
 func _process(delta: float) -> void:
  if not running:
   return
+ elapsed_seconds += delta
+ day = GameClock.day_from_seconds(elapsed_seconds)
  if job != "":
   progress += delta/6.0
   var machine := tractor if job == "sow" else harvester
@@ -225,43 +232,32 @@ func _build(cell: Vector2i) -> void:
  if cash < 900:
   status.text = "Недостаточно денег"
   return
- for x in range(cell.x,cell.x+2):
-  for z in range(cell.y,cell.y+2):
-   if x < 0 or z < 0 or x >= 16 or z >= 16 or z == 7 or z == 8 or (x >= 5 and x <= 8 and z >= 3 and z <= 6):
-    status.text = "Недоступная клетка"
-    return
-   for key in structures:
-    var p: Array = key.split(",")
-    if x >= int(p[0]) and x < int(p[0])+2 and z >= int(p[1]) and z < int(p[1])+2:
-     status.text = "Место занято"
-     return
+ if not BuildRules.can_place(cell, structures):
+  status.text = "Недоступная или занятая клетка"
+  return
  cash -= 900
  structures["%d,%d" % [cell.x,cell.y]] = true
  build = false
  _draw()
  status.text = "Склад построен!"
+func _snapshot() -> Dictionary:
+ return {"version":1,"cash":cash,"grain":grain,"stage":stage,"structures":structures.duplicate(),"job":job,"progress":progress,"day":day,"elapsed_seconds":elapsed_seconds}
 func _save() -> void:
- var f := FileAccess.open(SAVE,FileAccess.WRITE)
- if f == null:
+ if SaveStore.write(SAVE, _snapshot()):
+  status.text = "Сохранено"
+ else:
   status.text = "Ошибка сохранения"
-  return
- f.store_string(JSON.stringify({"version":1,"cash":cash,"grain":grain,"stage":stage,"structures":structures,"job":job,"progress":progress,"day":day}))
- status.text = "Сохранено"
 func _load() -> void:
- if not FileAccess.file_exists(SAVE):
-  status.text = "Нет сохранения, начните новую игру"
+ var data: Dictionary = SaveStore.read(SAVE)
+ if data.is_empty():
+  status.text = "Сохранение отсутствует или повреждено"
   return
- var f := FileAccess.open(SAVE,FileAccess.READ)
- if f == null:
-  return
- var data = JSON.parse_string(f.get_as_text())
- if not data is Dictionary or data.get("version",0) != 1:
-  return
- cash = int(data.get("cash",2000))
- grain = int(data.get("grain",0))
- stage = int(data.get("stage",0))
- structures = data.get("structures",{}).duplicate()
- job = str(data.get("job",""))
- progress = float(data.get("progress",0))
- day = int(data.get("day",1))
+ cash = int(data["cash"])
+ grain = int(data["grain"])
+ stage = int(data["stage"])
+ structures = data["structures"].duplicate()
+ job = str(data["job"])
+ progress = float(data["progress"])
+ day = int(data["day"])
+ elapsed_seconds = float(data.get("elapsed_seconds", (day-1) * GameClock.SECONDS_PER_YEAR / 365.0))
  _draw()
